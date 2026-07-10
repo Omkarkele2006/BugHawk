@@ -11,6 +11,7 @@ from .ruff_scanner import RuffScanner
 from .radon_scanner import RadonScanner
 from .pip_audit_scanner import PipAuditScanner
 from .report import Report, FindingWithExplanation
+from .job import ScanJob
 from ai.explainer import BHAIFindingExplainer
 
 class ScanManager:
@@ -62,8 +63,25 @@ class ScanManager:
         except Exception as e:
             print(f"[ScanManager] Directory cleanup error for {path}: {e}")
 
-    def run_analysis(self, repo_url: str) -> Report:
-        """Clones a repository, runs all scanners, aggregates findings, and returns a structured Report."""
+    def run_analysis(self, repo_url: str, job: ScanJob = None) -> Report:
+        """Clones a repository, runs all scanners, aggregates findings, and returns a structured Report.
+        
+        If a ScanJob is passed, its status and progress are updated throughout execution.
+        """
+        # Ensure ScanJob exists
+        if job is None:
+            job = ScanJob(
+                job_id=str(uuid.uuid4()),
+                repository_url=repo_url,
+                status="PENDING",
+                created_at=datetime.now(timezone.utc).isoformat()
+            )
+
+        # Transition status to RUNNING
+        job.status = "RUNNING"
+        job.started_at = datetime.now(timezone.utc).isoformat()
+        job.progress = 10
+
         # Setup temporary directories under Flask's ignored instance path
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         temp_root = os.path.join(base_dir, "instance", "temp")
@@ -86,22 +104,36 @@ class ScanManager:
 
         try:
             print(f"[ScanManager] Beginning checkout of {repo_url} into {dest_path}")
+            job.progress = 20
             self._clone_repository(repo_url, dest_path)
+            job.progress = 40
 
             # Run all scanners
-            for scanner in self.scanners:
+            for idx, scanner in enumerate(self.scanners):
                 try:
                     scanner_findings = scanner.scan(dest_path)
                     print(f"[ScanManager] {scanner.__class__.__name__} found {len(scanner_findings)} issues.")
                     findings.extend(scanner_findings)
                 except Exception as ex:
                     print(f"[ScanManager] Scanner {scanner.__class__.__name__} failed: {ex}")
+                
+                # Update scanner progress incrementally (mapping 40% -> 80% range)
+                job.progress = 40 + int((idx + 1) / len(self.scanners) * 40)
+
+        except Exception as e:
+            # Transition to FAILED state and clean up before re-raising
+            job.status = "FAILED"
+            job.completed_at = datetime.now(timezone.utc).isoformat()
+            job.error_message = str(e)
+            self._cleanup_repository(dest_path)
+            raise
 
         finally:
             print(f"[ScanManager] Cleaning up directory {dest_path}")
             self._cleanup_repository(dest_path)
 
         # Build detailed findings with AI explanations
+        job.progress = 90
         explainer = BHAIFindingExplainer()
         findings_with_explanations: List[FindingWithExplanation] = []
         
@@ -118,8 +150,15 @@ class ScanManager:
                 explanation=explanation
             ))
 
-        # Compile statistics and build the unified Report
-        return self._generate_report(project_name, repo_url, findings_with_explanations)
+        # Compile statistics, build Report, link to Job, and mark COMPLETED
+        report = self._generate_report(project_name, repo_url, findings_with_explanations)
+        
+        job.report = report
+        job.status = "COMPLETED"
+        job.completed_at = datetime.now(timezone.utc).isoformat()
+        job.progress = 100
+
+        return report
 
     def _generate_report(self, project_name: str, repo_url: str, findings: List[FindingWithExplanation]) -> Report:
         """Aggregates standard metrics, runs severity classification and constructs the final Report."""

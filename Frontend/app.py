@@ -9,8 +9,9 @@ import os
 import requests
 import json
 import urllib.parse 
+import uuid
 # Load Scanner Manager and Mock fallback
-from scanner import ScanManager
+from scanner import ScanManager, ScanJob
 
 try:
     from analyzer import analyze_repository
@@ -237,8 +238,14 @@ def analyze_route():
     # 1. Run Analysis with ScanManager
     try:
         print(f"Initiating deterministic repository scan for: {repo_url}")
+        job = ScanJob(
+            job_id=str(uuid.uuid4()),
+            repository_url=repo_url,
+            status="PENDING",
+            created_at=datetime.now(timezone.utc).isoformat()
+        )
         manager = ScanManager()
-        report = manager.run_analysis(repo_url)
+        report = manager.run_analysis(repo_url, job=job)
         analysis_results = report.to_dict()
     except Exception as e:
         print(f"Deterministic scan failed: {e}. Falling back to mock analyzer.")
