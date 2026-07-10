@@ -1,16 +1,18 @@
 import json
 import subprocess
 import os
-import shutil
+import sys
+import importlib.util
 from typing import List
 from .base import BaseScanner, Finding, map_severity
 
 class PipAuditScanner(BaseScanner):
     def scan(self, repo_path: str) -> List[Finding]:
         findings = []
-        if not shutil.which("pip-audit"):
-            print("[PipAuditScanner] 'pip-audit' executable not found in PATH. Skipping.")
-            return findings
+        
+        # Check module availability
+        if importlib.util.find_spec("pip_audit") is None:
+            raise RuntimeError("pip-audit package is not installed or available in the current Python environment.")
 
         req_files = []
         for root, dirs, files in os.walk(repo_path):
@@ -27,7 +29,7 @@ class PipAuditScanner(BaseScanner):
             rel_req_path = os.path.relpath(req_file, repo_path)
             try:
                 result = subprocess.run(
-                    ["pip-audit", "-r", req_file, "--format", "json"],
+                    [sys.executable, "-m", "pip_audit", "-r", req_file, "--format", "json"],
                     capture_output=True,
                     text=True,
                     check=False
@@ -71,7 +73,6 @@ class PipAuditScanner(BaseScanner):
                         rec_fix = f"Upgrade package to safe version(s): {', '.join(fix_versions)}." if fix_versions else "Upgrade package to the latest stable release."
                         recommendation = f"Identify alternative dependencies or apply suggested update. {rec_fix}"
                         
-                        # Centralized severity mapping
                         severity = map_severity("CRITICAL")
                         
                         findings.append(Finding(
@@ -89,6 +90,7 @@ class PipAuditScanner(BaseScanner):
                             confidence="HIGH"
                         ))
             except Exception as e:
-                print(f"[PipAuditScanner] Scan encountered an error on {rel_req_path}: {e}")
+                # Raise the exception so ScanManager captures the exact failure details
+                raise RuntimeError(f"pip-audit execution failed on {rel_req_path}: {e}")
                 
         return findings

@@ -1,29 +1,32 @@
 import json
 import subprocess
 import os
-import shutil
+import sys
+import importlib.util
 from typing import List
 from .base import BaseScanner, Finding, map_severity
 
 class RadonScanner(BaseScanner):
     def scan(self, repo_path: str) -> List[Finding]:
         findings = []
-        if not shutil.which("radon"):
-            print("[RadonScanner] 'radon' executable not found in PATH. Skipping.")
-            return findings
+        
+        # Check module availability
+        if importlib.util.find_spec("radon") is None:
+            raise RuntimeError("Radon package is not installed or available in the current Python environment.")
 
         try:
             result = subprocess.run(
-                ["radon", "cc", "-j", "-s", repo_path],
+                [sys.executable, "-m", "radon", "cc", "-j", "-s", repo_path],
                 capture_output=True,
                 text=True,
                 check=False
             )
             
-            if not result.stdout.strip():
+            stdout = result.stdout.strip()
+            if not stdout:
                 return findings
                 
-            data = json.loads(result.stdout)
+            data = json.loads(stdout)
             for file_key, blocks in data.items():
                 rel_path = os.path.relpath(file_key, repo_path) if os.path.isabs(file_key) else file_key
                 
@@ -37,7 +40,6 @@ class RadonScanner(BaseScanner):
                     block_type = block.get("type", "function")
                     lineno = int(block.get("lineno", 1))
                     
-                    # Centralized severity mapping
                     severity = map_severity(rank)
                     
                     recommendation = (
@@ -59,6 +61,7 @@ class RadonScanner(BaseScanner):
                         confidence="HIGH"
                     ))
         except Exception as e:
-            print(f"[RadonScanner] Scan encountered an error: {e}")
+            # Raise the exception so ScanManager captures the exact failure details
+            raise RuntimeError(f"Radon execution encountered an error: {e}")
             
         return findings

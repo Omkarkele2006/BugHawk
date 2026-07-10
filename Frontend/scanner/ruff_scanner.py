@@ -1,29 +1,32 @@
 import json
 import subprocess
 import os
-import shutil
+import sys
+import importlib.util
 from typing import List
 from .base import BaseScanner, Finding, map_severity
 
 class RuffScanner(BaseScanner):
     def scan(self, repo_path: str) -> List[Finding]:
         findings = []
-        if not shutil.which("ruff"):
-            print("[RuffScanner] 'ruff' executable not found in PATH. Skipping.")
-            return findings
+        
+        # Check module availability
+        if importlib.util.find_spec("ruff") is None:
+            raise RuntimeError("Ruff package is not installed or available in the current Python environment.")
 
         try:
             result = subprocess.run(
-                ["ruff", "check", "--format", "json", repo_path],
+                [sys.executable, "-m", "ruff", "check", "--format", "json", repo_path],
                 capture_output=True,
                 text=True,
                 check=False
             )
             
-            if not result.stdout.strip():
+            stdout = result.stdout.strip()
+            if not stdout:
                 return findings
                 
-            data = json.loads(result.stdout)
+            data = json.loads(stdout)
             for issue in data:
                 full_path = issue.get("filename", "")
                 rel_path = os.path.relpath(full_path, repo_path) if os.path.isabs(full_path) else full_path
@@ -32,7 +35,6 @@ class RuffScanner(BaseScanner):
                 is_bug = code.startswith("E9") or code.startswith("F") or "syntax" in issue.get("message", "").lower()
                 category = "bugs" if is_bug else "codeSmells"
                 
-                # Centralized severity mapping
                 raw_severity = "CRITICAL" if is_bug else "MINOR"
                 severity = map_severity(raw_severity)
                 
@@ -54,6 +56,7 @@ class RuffScanner(BaseScanner):
                     confidence="HIGH"
                 ))
         except Exception as e:
-            print(f"[RuffScanner] Scan encountered an error: {e}")
+            # Raise the exception so ScanManager captures the exact failure details
+            raise RuntimeError(f"Ruff execution encountered an error: {e}")
             
         return findings

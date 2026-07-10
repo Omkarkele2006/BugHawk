@@ -2,6 +2,7 @@ import os
 import uuid
 import shutil
 import subprocess
+import time
 from typing import List, Dict, Any
 from datetime import datetime, timezone
 
@@ -46,22 +47,31 @@ class ScanManager:
             raise ValueError(f"Failed to clone repository: {str(e)}")
 
     def _cleanup_repository(self, path: str):
-        """Clean up the cloned repository files recursively, handling read-only git files."""
+        """Clean up the cloned repository files recursively, handling read-only git files with retry logic for Windows locks."""
         if not os.path.exists(path):
             return
 
+        import stat
         def remove_readonly(func, file_path, excinfo):
-            import stat
             try:
                 os.chmod(file_path, stat.S_IWRITE)
                 func(file_path)
             except Exception as e:
                 print(f"[ScanManager] Failed to clean up file {file_path}: {e}")
 
-        try:
-            shutil.rmtree(path, onerror=remove_readonly)
-        except Exception as e:
-            print(f"[ScanManager] Directory cleanup error for {path}: {e}")
+        # Try up to 3 times with a short sleep in case of transient locks
+        for attempt in range(3):
+            try:
+                if os.path.exists(path):
+                    shutil.rmtree(path, onerror=remove_readonly)
+                print(f"[ScanManager] Cleaned up directory {path} successfully.")
+                break
+            except Exception as e:
+                if attempt == 2:
+                    print(f"[ScanManager] Directory cleanup error for {path} after 3 attempts: {e}")
+                else:
+                    print(f"[ScanManager] Directory cleanup attempt {attempt + 1} failed: {e}. Retrying...")
+                    time.sleep(0.5)
 
     def run_analysis(self, repo_url: str, job: ScanJob = None) -> Report:
         """Clones a repository, runs all scanners, aggregates findings, and returns a structured Report.
@@ -91,6 +101,7 @@ class ScanManager:
         dest_path = os.path.join(temp_root, scan_id)
 
         findings: List[Finding] = []
+        tools_failed: List[str] = []
         project_name = "Unknown Project"
 
         try:
@@ -110,12 +121,22 @@ class ScanManager:
 
             # Run all scanners
             for idx, scanner in enumerate(self.scanners):
+                # Map concrete class names to user-friendly scanner labels
+                tool_name = "bandit"
+                if scanner.__class__.__name__ == "RuffScanner":
+                    tool_name = "ruff"
+                elif scanner.__class__.__name__ == "RadonScanner":
+                    tool_name = "radon"
+                elif scanner.__class__.__name__ == "PipAuditScanner":
+                    tool_name = "pip-audit"
+                
                 try:
                     scanner_findings = scanner.scan(dest_path)
                     print(f"[ScanManager] {scanner.__class__.__name__} found {len(scanner_findings)} issues.")
                     findings.extend(scanner_findings)
                 except Exception as ex:
                     print(f"[ScanManager] Scanner {scanner.__class__.__name__} failed: {ex}")
+                    tools_failed.append(tool_name)
                 
                 # Update scanner progress incrementally (mapping 40% -> 80% range)
                 job.progress = 40 + int((idx + 1) / len(self.scanners) * 40)
@@ -151,7 +172,7 @@ class ScanManager:
             ))
 
         # Compile statistics, build Report, link to Job, and mark COMPLETED
-        report = self._generate_report(project_name, repo_url, findings_with_explanations)
+        report = self._generate_report(project_name, repo_url, findings_with_explanations, tools_failed)
         
         job.report = report
         job.status = "COMPLETED"
@@ -160,7 +181,9 @@ class ScanManager:
 
         return report
 
-    def _generate_report(self, project_name: str, repo_url: str, findings: List[FindingWithExplanation]) -> Report:
+    def _generate_report(
+        self, project_name: str, repo_url: str, findings: List[FindingWithExplanation], tools_failed: List[str]
+    ) -> Report:
         """Aggregates standard metrics, runs severity classification and constructs the final Report."""
         from .scoring import HealthScoreEngine
 
@@ -180,18 +203,20 @@ class ScanManager:
             else:
                 issue_counts_by_category["codeSmells"] += 1
 
-        # Determine executed scanners
+        # Determine executed scanners (only ones that didn't fail)
         tools_executed = []
         for scanner in self.scanners:
             name = scanner.__class__.__name__
-            if name == "BanditScanner" and shutil.which("bandit"):
-                tools_executed.append("bandit")
-            elif name == "RuffScanner" and shutil.which("ruff"):
-                tools_executed.append("ruff")
-            elif name == "RadonScanner" and shutil.which("radon"):
-                tools_executed.append("radon")
-            elif name == "PipAuditScanner" and shutil.which("pip-audit"):
-                tools_executed.append("pip-audit")
+            tool_id = "bandit"
+            if name == "RuffScanner":
+                tool_id = "ruff"
+            elif name == "RadonScanner":
+                tool_id = "radon"
+            elif name == "PipAuditScanner":
+                tool_id = "pip-audit"
+                
+            if tool_id not in tools_failed:
+                tools_executed.append(tool_id)
 
         # Sort prioritized findings (CRITICAL first, then MAJOR, then MINOR)
         severity_rank = {"CRITICAL": 0, "MAJOR": 1, "MINOR": 2, "INFO": 3}
@@ -214,6 +239,10 @@ class ScanManager:
                 f"A total of {len(findings)} issues were detected by automated audit tools."
             )
 
+        # Append execution failure warnings to the executive report if any scanner failed
+        if tools_failed:
+            executive_summary += f"\n\n[Warning: The following scanners failed or were unavailable: {', '.join(tools_failed)}]"
+
         # Compile severity counts
         issue_counts_by_severity = {"CRITICAL": 0, "MAJOR": 0, "MINOR": 0, "INFO": 0}
         for f in raw_findings_list:
@@ -235,5 +264,6 @@ class ScanManager:
             health_score_numeric=health_score.overall_score,
             findings=findings,
             prioritized_findings=prioritized_findings,
-            executive_summary=executive_summary
+            executive_summary=executive_summary,
+            tools_failed=tools_failed
         )

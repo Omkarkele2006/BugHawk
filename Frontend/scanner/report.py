@@ -1,5 +1,5 @@
 from dataclasses import dataclass, asdict
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from .base import Finding
 from ai.base import Explanation
 
@@ -22,6 +22,7 @@ class Report:
     findings: List[FindingWithExplanation]
     prioritized_findings: List[FindingWithExplanation]
     executive_summary: str
+    tools_failed: Optional[List[str]] = None  # List of scanners that failed to run or were missing
 
     def to_dict(self) -> Dict[str, Any]:
         """Serializes the Report model into the legacy dictionary schema expected by the Flask DB/UI layer."""
@@ -62,5 +63,6 @@ class Report:
                     self.issue_counts_by_severity.get("MAJOR", 0)
                 ]
             },
-            "full_report_text": self.executive_summary
+            "full_report_text": self.executive_summary,
+            "tools_failed": self.tools_failed or []
         }
