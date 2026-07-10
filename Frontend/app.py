@@ -9,7 +9,9 @@ import os
 import requests
 import json
 import urllib.parse 
-# Assuming you have this file, otherwise the analyze route will need a mock
+# Load Scanner Manager and Mock fallback
+from scanner import ScanManager
+
 try:
     from analyzer import analyze_repository
 except ImportError:
@@ -232,8 +234,14 @@ def analyze_route():
     repo_url = request.get_json().get('url')
     if not repo_url: return jsonify({'error': 'URL required'}), 400
 
-    # 1. Run Analysis
-    analysis_results = analyze_repository(repo_url)
+    # 1. Run Analysis with ScanManager
+    try:
+        print(f"Initiating deterministic repository scan for: {repo_url}")
+        manager = ScanManager()
+        analysis_results = manager.run_analysis(repo_url)
+    except Exception as e:
+        print(f"Deterministic scan failed: {e}. Falling back to mock analyzer.")
+        analysis_results = analyze_repository(repo_url)
     
     # 2. Save to DB
     try:
