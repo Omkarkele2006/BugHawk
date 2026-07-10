@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About BugHawk</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    
+    <!-- Font Awesome for Team Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" xintegrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+    <!-- Copied styles from index.html for consistency -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            color: #CCD6F6;
+            overflow-x: hidden;
+            background: linear-gradient(-45deg, #0A192F, #112240, #1C2E4A, #0A192F);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+        }
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        .glass-effect {
+            background: rgba(10, 25, 47, 0.85);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(42, 67, 101, 0.3);
+            transition: all 0.3s ease;
+        }
+        .glass-effect:hover {
+            box-shadow: 0 0 15px rgba(100, 255, 218, 0.3);
+            transform: translateY(-3px);
+        }
+        .brand-gradient {
+            background: linear-gradient(90deg, #64FFDA, #00C6FF);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .btn-primary {
+            background-color: #64FFDA;
+            color: #0A192F;
+            transition: all 0.3s ease;
+        }
+        .btn-primary:hover {
+            background-color: #0A192F;
+            color: #64FFDA;
+            box-shadow: 0 0 15px rgba(100, 255, 218, 0.4);
+        }
+        #particle-canvas {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; opacity: 0.2;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen">
+    <canvas id="particle-canvas"></canvas>
+
+    <div class="relative z-10 min-h-screen flex flex-col">
+        <!-- Header (Copied from index.html) -->
+        <header class="py-6 px-4 sm:px-6 lg:px-8">
+            <div class="container mx-auto max-w-7xl flex justify-between items-center">
+                <div class="flex items-center space-x-3">
+                    <img src="{{ url_for('static', filename='bughawk_logo.jpg') }}" alt="BugHawk Logo" class="h-10 mx-auto rounded-full">
+                    <h1 class="text-2xl font-bold text-white">BugHawk</h1>
+                </div>
+                <nav class="hidden md:flex items-center space-x-8">
+                    <a href="{{ url_for('index') }}" class="text-sm text-gray-300 hover:text-[#64FFDA] transition-colors">Home</a>
+                    <a href="/#analysis-section" class="text-sm text-gray-300 hover:text-[#64FFDA] transition-colors">Analyze Repo</a>
+                    <a href="{{ url_for('chat') }}" class="text-sm text-gray-300 hover:text-[#64FFDA] transition-colors">AI Insights</a>
+                    <a href="{{ url_for('about') }}" class="text-sm font-medium text-[#64FFDA] transition-colors">About</a>
+                    <a href="{{ url_for('contact') }}" class="text-sm text-gray-300 hover:text-[#64FFDA] transition-colors">Contact</a>
+                </nav>
+                <a href="{{ url_for('dashboard') }}"
+                    class="hidden md:block bg-transparent border border-[#64FFDA] text-[#64FFDA] px-4 py-2 rounded-md text-sm font-medium hover:bg-[#64FFDA] hover:text-[#0A192F] transition-all">
+                    Launch App
+                </a>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-grow flex flex-col items-center px-4 sm:px-6 lg:px-8 py-16">
+            <div class="container mx-auto max-w-4xl text-center">
+
+                <h1 class="text-4xl sm:text-5xl font-extrabold text-white leading-tight">
+                  <span class="brand-gradient">Smarter Code, Faster Teams</span>
+                </h1>
+                <p class="mt-6 max-w-2xl mx-auto text-lg text-gray-400">
+                    BugHawk was born from a simple idea: what if AI could be a true partner in the software development lifecycle? This project, built by students from VIT, Pune, aims to create that partner.
+                </p>
+
+                <!-- What is BugHawk? -->
+                <div class="glass-effect p-8 rounded-lg text-left mt-16">
+                    <h2 class="text-2xl font-semibold text-white mb-4">What is BugHawk?</h2>
+                    <p class="text-gray-400 mb-4">
+                        BugHawk isn't just another linter. It's an intelligent copilot designed to analyze Git repositories for a wide spectrum of issues. We leverage AI to go beyond simple syntax and find deep-seated problems:
+                    </p>
+                    <ul class="list-disc list-inside text-gray-400 space-y-2">
+                        <li><strong class="text-gray-300">Security Vulnerabilities:</strong> Finding risks like SQLi and XSS before they're exploited.</li>
+                        <li><strong class="text-gray-300">Performance Bottlenecks:</strong> Identifying inefficient code that slows your app down.</li>
+                        <li><strong class="text-gray-300">Predictive Analysis:</strong> Using historical data to predict sensitive parts of your code.</li>
+                        <li><strong class="text-gray-300">Automated Documentation:</strong> Generating clear documentation so your team can stay in sync.</li>
+                    </ul>
+                    <p class="text-gray-400 mt-4">
+                        Our goal is to provide a single "Project Health Score" that gives development teams an at-a-glance understanding of their codebase's quality, allowing them to ship flawless code, faster.
+                    </p>
+                </div>
+
+                <!-- Meet the Team -->
+                <div class="mt-20 w-full">
+                    <h2 class="text-3xl font-bold text-white mb-10">Meet the Team</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-8 text-left">
+                        
+                        <!-- Om Karkele -->
+                        <div class="glass-effect p-6 rounded-lg">
+                            <i class="fa-solid fa-user-astronaut text-3xl text-[#64FFDA] mb-4"></i>
+                            <h3 class="text-xl font-semibold text-white">Om Karkele</h3>
+                            <p class="text-sm text-gray-400">Project Lead & System Architect</p>
+                        </div>
+                        <div class="glass-effect p-6 rounded-lg">
+                                                        <i class="fa-solid fa-brain text-3xl text-[#64FFDA] mb-4"></i>
+
+                            <h3 class="text-xl font-semibold text-white">Aditya Katkar</h3>
+                            <p class="text-sm text-gray-400">AI Model and Backend Developer</p>
+                        </div>
+                        
+                        <div class="glass-effect p-6 rounded-lg">
+                                                        <i class="fa-solid fa-palette text-3xl text-[#64FFDA] mb-4"></i>
+
+                            <h3 class="text-xl font-semibold text-white">Kartik Mandhane</h3>
+                            <p class="text-sm text-gray-400">Frontend & UX Lead</p>
+                        </div>
+
+                        <div class="glass-effect p-6 rounded-lg">
+                            <i class="fa-solid fa-database text-3xl text-[#64FFDA] mb-4"></i>
+                            <h3 class="text-xl font-semibold text-white">Yash Kashid</h3>
+                            <p class="text-sm text-gray-400">UI & Database Specialist</p>
+                        </div>
+
+                    
+                        
+
+                        
+                    </div>
+                </div>
+
+            </div>
+        </main>
+
+        <!-- Footer (Copied from index.html) -->
+        <footer class="py-6 px-4 sm:px-6 lg:px-8">
+            <div class="container mx-auto max-w-7xl text-center text-sm text-gray-500">
+                <p>&copy; 2025 BugHawk by Group SY-F-18. All rights reserved.</p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Particle Script (Copied from index.html) -->
+    <script>
+        const canvas = document.getElementById('particle-canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        let particlesArray;
+        const mouse = { x: null, y: null, radius: (canvas.height / 100) * (canvas.width / 100) }
+        window.addEventListener('mousemove', (event) => { mouse.x = event.x; mouse.y = event.y; });
+        class Particle {
+            constructor(x, y, directionX, directionY, size, color) {
+                this.x = x; this.y = y; this.directionX = directionX; this.directionY = directionY; this.size = size; this.color = color;
+            }
+            draw() {
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2, false); ctx.fillStyle = this.color; ctx.fill();
+            }
+            update() {
+                if (this.x > canvas.width || this.x < 0) { this.directionX = -this.directionX; }
+                if (this.y > canvas.height || this.y < 0) { this.directionY = -this.directionY; }
+                this.x += this.directionX; this.y += this.directionY; this.draw();
+            }
+        }
+        function init() {
+            particlesArray = [];
+            let numberOfParticles = (canvas.height * canvas.width) / 9000;
+            for (let i = 0; i < numberOfParticles; i++) {
+                let size = (Math.random() * 2) + 1;
+                let x = (Math.random() * ((innerWidth - size * 2) - (size * 2)) + size * 2);
+                let y = (Math.random() * ((innerHeight - size * 2) - (size * 2)) + size * 2);
+                let directionX = (Math.random() * .4) - .2;
+                let directionY = (Math.random() * .4) - .2;
+                let color = '#304C6B';
+                particlesArray.push(new Particle(x, y, directionX, directionY, size, color));
+            }
+        }
+        function connect() {
+            let opacityValue = 1;
+            for (let a = 0; a < particlesArray.length; a++) {
+                for (let b = a; b < particlesArray.length; b++) {
+                    let distance = ((particlesArray[a].x - particlesArray[b].x) * (particlesArray[a].x - particlesArray[b].x)) +
+                        ((particlesArray[a].y - particlesArray[b].y) * (particlesArray[a].y - particlesArray[b].y));
+                    if (distance < (canvas.width / 7) * (canvas.height / 7)) {
+                        opacityValue = 1 - (distance / 20000);
+                        ctx.strokeStyle = `rgba(100, 255, 218, ${opacityValue})`;
+                        ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(particlesArray[a].x, particlesArray[a].y); ctx.lineTo(particlesArray[b].x, particlesArray[b].y); ctx.stroke();
+                    }
+                }
+            }
+        }
+        function animate() {
+            requestAnimationFrame(animate); ctx.clearRect(0, 0, innerWidth, innerHeight);
+            for (let i = 0; i < particlesArray.length; i++) { particlesArray[i].update(); }
+            connect();
+        }
+        window.addEventListener('resize', () => {
+            canvas.width = innerWidth; canvas.height = innerHeight;
+            mouse.radius = (canvas.height / 100) * (canvas.width / 100); init();
+        });
+        window.addEventListener('mouseout', () => { mouse.x = undefined; mouse.y = undefined; });
+        init();
+        animate();
+    </script>
+</body>
+</html>

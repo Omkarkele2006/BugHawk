@@ -1,0 +1,189 @@
+problem,labels,category
+Security alert: privilege escalation attempt detected in user session,threat,security
+ArrayIndexOutOfBoundsException accessing list element,debug,development
+Database injection attack attempting data extraction,threat,security
+Error: database deadlock detected between concurrent operations,debug,development
+Cache hit ratio below optimal performance levels,debug,development
+Connection timeout,debug,development
+Port already in use by another process,debug,development
+Syntax error,debug,development
+Error: query performance degradation due to missing index,debug,development
+Security alert: brute force attack detected against user authentication,threat,security
+Database index corruption requiring rebuild,debug,development
+Security token manipulation attempt detected,threat,security
+Security alert: unauthorized file access in restricted directory,threat,security
+Business logic validation failing for user input,debug,development
+Security alert: network intrusion attempt bypassing firewall rules,threat,security
+Worm attempting to replicate across network connections,threat,security
+Workflow engine stuck in infinite processing loop,debug,development
+Cross-site scripting attempt in user input field,threat,security
+Hardware-based attack vector identified in firmware,threat,security
+Zero-day exploit attempt targeting unpatched vulnerability,threat,security
+SQL injection attack detected in web application,threat,security
+CPU utilization exceeding 90% threshold,debug,development
+Security alert: virus signature match found in downloaded file attachment,threat,security
+Sophisticated attack campaign using multiple attack vectors,threat,security
+Memory leak found,debug,development
+Error: ssl handshake failure with certificate validation,debug,development
+Security alert: trojan horse identified attempting to modify system registry,threat,security
+Error: concurrentmodificationexception in multithreaded code,debug,development
+TCP connection refused by remote host,debug,development
+System backdoor installation attempt detected,threat,security
+Security alert: ddos attack overwhelming server with traffic requests,threat,security
+Data serialization error in object persistence,debug,development
+Transaction rollback due to constraint violation,debug,development
+Docker container failing to start properly,debug,development
+Kubernetes pod restart loop detected,debug,development
+Library dependency not found in classpath,debug,development
+Sensitive data exposure in unsecured database query,threat,security
+Performance regression identified in benchmark testing,debug,development
+Buffer overflow exploit targeting application vulnerability,threat,security
+Hack attempt,threat,security
+Unauthorized access attempt from external IP address,threat,security
+Spam campaign distributing malicious attachments,threat,security
+Connection pool exhausted maximum connections reached,debug,development
+Error: outofmemoryerror heap space exhausted,debug,development
+Application startup time increased significantly,debug,development
+Webhook delivery failure to subscriber endpoint,debug,development
+Foreign key constraint violation in insert operation,debug,development
+Security alert: spyware collecting user credentials and personal information,threat,security
+External service rate limiting API requests,debug,development
+Null pointer error,debug,development
+Error: tcp connection refused by remote host,debug,development
+Error: database index corruption requiring rebuild,debug,development
+Lateral movement detected across multiple system accounts,threat,security
+Unauthorized data transfer to external systems,threat,security
+Suspicious email attachment containing executable code,threat,security
+Message queue processing backlog accumulating,debug,development
+Configuration issue,debug,development
+Covert communication channel established with external server,threat,security
+Port scanning activity detected from suspicious source,threat,security
+Adware injecting unwanted advertisements into web browser,threat,security
+SQL syntax error in prepared statement,debug,development
+Suspicious process execution with elevated privileges,threat,security
+Version compatibility issue between dependencies,debug,development
+State-sponsored threat actor signatures detected in traffic,threat,security
+API rate limiting threshold exceeded,debug,development
+Error: connection pool exhausted maximum connections reached,debug,development
+Long-term reconnaissance activity detected in network,threat,security
+Security alert: unauthorized network device connected to secure network,threat,security
+Phishing email attempting credential theft detected,threat,security
+Error: nullpointerexception thrown in main application thread,debug,development
+Suspicious login activity from unusual geographic location,threat,security
+State management inconsistency in application workflow,debug,development
+Load balancer health check failing,debug,development
+Unit test failing after code refactoring changes,debug,development
+Security alert: man-in-the-middle attack intercepting network communications,threat,security
+Error: http 500 internal server error in rest api,debug,development
+Malware found,threat,security
+Security breach,threat,security
+Suspicious network traffic patterns indicating data exfiltration,threat,security
+HTTP 500 internal server error in REST API,debug,development
+NoSuchMethodError missing required method implementation,debug,development
+Configuration file syntax error preventing launch,debug,development
+Automated test suite execution failure,debug,development
+ClassNotFoundException during dynamic class loading,debug,development
+System call interception by unknown process,threat,security
+Privilege escalation attempt detected in user session,threat,security
+System integrity violation detected in core files,threat,security
+Man-in-the-middle attack intercepting network communications,threat,security
+Static analysis detected potential code smell,debug,development
+Unauthorized system configuration changes identified,threat,security
+Database deadlock detected between concurrent operations,debug,development
+Security alert: unauthorized access attempt from external ip address,threat,security
+ConcurrentModificationException in multithreaded code,debug,development
+Code bug,debug,development
+DNS resolution failure for domain name,debug,development
+Path traversal attack attempting file system access,threat,security
+Security alert: suspicious network traffic patterns indicating data exfiltration,threat,security
+Social engineering attack via fraudulent phone call,threat,security
+Malicious link clicked leading to infected website,threat,security
+Query performance degradation due to missing index,debug,development
+Session hijacking attempt detected in web traffic,threat,security
+Business email compromise attempt targeting executives,threat,security
+Credit card information harvesting attempt detected,threat,security
+OutOfMemoryError heap space exhausted,debug,development
+Database connection timeout after 30 seconds,debug,development
+Unauthorized network device connected to secure network,threat,security
+Threat identified,threat,security
+File transfer interrupted due to network instability,debug,development
+Security alert: rootkit hiding malicious processes from system monitoring,threat,security
+Trojan horse identified attempting to modify system registry,threat,security
+Brute force attack detected against user authentication,threat,security
+Command injection attack through web form submission,threat,security
+Data synchronization conflict between systems,debug,development
+File upload vulnerability exploited for malicious content,threat,security
+Multi-factor authentication bypass attempt identified,threat,security
+Persistent malware installation attempt in system startup,threat,security
+Session state corruption causing user logout,debug,development
+Performance problem,debug,development
+Missing environment variable for application startup,debug,development
+Confidential document accessed by unauthorized user,threat,security
+Email-based ransomware distribution campaign detected,threat,security
+Account lockout triggered by repeated invalid credentials,threat,security
+Unauthorized file access in restricted directory,threat,security
+Virus detected,threat,security
+Third-party API returning malformed JSON response,debug,development
+Attack detected,threat,security
+Security alert: ransomware encryption activity detected on file system,threat,security
+DDoS attack overwhelming server with traffic requests,threat,security
+Error: stackoverflowerror due to infinite recursion,debug,development
+Logic error,debug,development
+Memory leak detected in long-running process,debug,development
+Ransomware encryption activity detected on file system,threat,security
+Personal information leakage through application vulnerability,threat,security
+Security alert: suspicious login activity from unusual geographic location,threat,security
+Network timeout waiting for server response,debug,development
+Security alert: worm attempting to replicate across network connections,threat,security
+Administrative privileges accessed without proper authorization,threat,security
+Data theft,threat,security
+Response time SLA violation detected,debug,development
+Intrusion alert,threat,security
+Mock service returning unexpected test data,debug,development
+System compromise,threat,security
+Error: transaction rollback due to constraint violation,debug,development
+Boot sector infection attempt by malicious code,threat,security
+Network intrusion attempt bypassing firewall rules,threat,security
+Data breach attempt accessing customer information,threat,security
+Failed authentication attempts exceeding security threshold,threat,security
+File permission denied for required resource,debug,development
+Malware detected in system memory executing suspicious processes,threat,security
+Error: sql syntax error in prepared statement,debug,development
+Advanced evasion techniques detected in malicious payload,threat,security
+Error: dns resolution failure for domain name,debug,development
+Data integrity violation detected in financial records,threat,security
+Security alert: adware injecting unwanted advertisements into web browser,threat,security
+Rootkit hiding malicious processes from system monitoring,threat,security
+SSL handshake failure with certificate validation,debug,development
+Error: illegalargumentexception passed to method parameter,debug,development
+Thread pool exhaustion causing request delays,debug,development
+Service dependency unavailable causing cascade failure,debug,development
+Error: foreign key constraint violation in insert operation,debug,development
+Security alert: port scanning activity detected from suspicious source,threat,security
+Cache synchronization issue between distributed nodes,debug,development
+Code coverage below minimum required threshold,debug,development
+IllegalArgumentException passed to method parameter,debug,development
+Security alert: malware detected in system memory executing suspicious processes,threat,security
+End-to-end test scenario failing intermittently,debug,development
+Cross-site request forgery attack detected,threat,security
+Security alert: failed authentication attempts exceeding security threshold,threat,security
+NullPointerException thrown in main application thread,debug,development
+Integration test timeout in continuous deployment,debug,development
+Virus signature match found in downloaded file attachment,threat,security
+Garbage collection pause time exceeding limits,debug,development
+Unauthorized access,threat,security
+WebSocket connection unexpectedly closed,debug,development
+Message broker connection lost during processing,debug,development
+Error: classnotfoundexception during dynamic class loading,debug,development
+Kernel-level compromise indicators found in memory,threat,security
+Disk space running low on system partition,debug,development
+StackOverflowError due to infinite recursion,debug,development
+Test failure,debug,development
+Spyware collecting user credentials and personal information,threat,security
+Error: nosuchmethoderror missing required method implementation,debug,development
+Error: database connection timeout after 30 seconds,debug,development
+Authentication token expired for external service,debug,development
+Data transformation error in processing pipeline,debug,development
+Deployment failure,debug,development
+Error: arrayindexoutofboundsexception accessing list element,debug,development
+Email spoofing attack impersonating trusted sender,threat,security

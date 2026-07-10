@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Settings - BugHawk</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Fonts & Icons -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+  
+  <style>
+    /* --- Core Theme --- */
+    body { font-family: 'Inter', sans-serif; background-color: #0A192F; color: #CCD6F6; }
+    
+    /* --- Custom Scrollbars --- */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #0A192F; }
+    ::-webkit-scrollbar-thumb { background: #304C6B; border-radius: 4px; border: 1px solid #112240; }
+    ::-webkit-scrollbar-thumb:hover { background: #64FFDA; }
+
+    /* --- Glassmorphism --- */
+    .glass-card {
+      background: rgba(17, 34, 64, 0.7);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(100, 255, 218, 0.1);
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      transition: all 0.3s ease;
+    }
+    .glass-card:hover {
+      border-color: rgba(100, 255, 218, 0.3);
+      box-shadow: 0 10px 30px -10px rgba(2, 12, 27, 0.7);
+    }
+
+    /* --- Form Elements --- */
+    .form-select, .form-input, .form-textarea {
+      background-color: #0d1117;
+      border: 1px solid #304C6B;
+      color: #CCD6F6;
+      transition: all 0.2s ease;
+    }
+    .form-select:focus, .form-input:focus, .form-textarea:focus {
+      border-color: #64FFDA;
+      outline: none;
+      box-shadow: 0 0 0 1px #64FFDA;
+      background-color: #112240;
+    }
+
+    /* --- Buttons --- */
+    .btn-primary {
+      background-color: #64FFDA; color: #0A192F; font-weight: 600;
+      transition: all 0.2s ease; box-shadow: 0 0 10px rgba(100, 255, 218, 0.1);
+    }
+    .btn-primary:hover {
+      background-color: #0A192F; color: #64FFDA; border: 1px solid #64FFDA;
+      box-shadow: 0 0 20px rgba(100, 255, 218, 0.4);
+    }
+    .btn-danger {
+      background-color: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3);
+      transition: all 0.2s;
+    }
+    .btn-danger:hover {
+      background-color: #ef4444; color: white;
+    }
+
+    /* --- Toggle Switch --- */
+    .toggle-checkbox:checked { right: 0; border-color: #64FFDA; }
+    .toggle-checkbox:checked + .toggle-label { background-color: #64FFDA; }
+    .toggle-label { width: 40px; height: 20px; background-color: #304C6B; transition: background-color 0.2s; }
+    
+    /* --- Range Slider --- */
+    input[type=range] { -webkit-appearance: none; appearance: none; background: transparent; }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%;
+      background: #64FFDA; cursor: pointer; margin-top: -6px;
+    }
+    input[type=range]::-webkit-slider-runnable-track {
+      width: 100%; height: 4px; cursor: pointer; background: #304C6B; border-radius: 2px;
+    }
+  </style>
+</head>
+
+<body class="min-h-screen flex bg-[#0A192F]">
+
+  <!-- 1. Mobile Toggle Button -->
+  <div class="lg:hidden fixed top-4 left-4 z-50">
+    <button id="mobile-toggle" class="p-2 bg-[#112240] text-[#64FFDA] rounded-md shadow-lg border border-[#304C6B] hover:bg-[#1A365D]">
+        <i class="fa-solid fa-bars"></i>
+    </button>
+  </div>
+
+  <!-- 2. Universal Collapsible Sidebar -->
+  <aside id="sidebar" class="fixed top-0 left-0 z-40 h-screen transition-all duration-300 ease-in-out bg-[#112240] border-r border-[#304C6B] flex flex-col
+             w-64 -translate-x-full lg:translate-x-0 group/sidebar shadow-2xl">
+    
+    <!-- Logo Area -->
+    <div class="h-16 flex items-center justify-between px-4 border-b border-[#304C6B]">
+        <a href="{{ url_for('index') }}" class="flex items-center space-x-3 overflow-hidden">
+            <img src="{{ url_for('static', filename='bughawk_logo.jpg') }}" alt="Logo" class="h-8 w-8 rounded-full border border-[#64FFDA] flex-shrink-0" />
+            <span class="logo-text text-lg font-bold text-white tracking-wider whitespace-nowrap transition-opacity duration-300">BugHawk</span>
+        </a>
+        <button id="mobile-close" class="lg:hidden text-gray-400 hover:text-white">
+            <i class="fa-solid fa-times"></i>
+        </button>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="flex-1 py-4 overflow-y-auto overflow-x-hidden">
+        <ul class="space-y-1 px-2">
+            <li>
+                <a href="{{ url_for('dashboard') }}" class="nav-item flex items-center px-3 py-3 rounded-md transition-all group relative text-gray-400 hover:bg-[#0A192F] hover:text-[#64FFDA]">
+                    <i class="fa-solid fa-chart-pie w-6 text-center text-lg"></i>
+                    <span class="nav-text ml-3 whitespace-nowrap transition-opacity duration-300">Dashboard</span>
+                    <div class="hidden absolute left-14 bg-[#0A192F] text-white text-xs px-2 py-1 rounded border border-[#304C6B] opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none whitespace-nowrap">Dashboard</div>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('profile') }}" class="nav-item flex items-center px-3 py-3 rounded-md transition-all group relative text-gray-400 hover:bg-[#0A192F] hover:text-[#64FFDA]">
+                    <i class="fa-solid fa-user w-6 text-center text-lg"></i>
+                    <span class="nav-text ml-3 whitespace-nowrap transition-opacity duration-300">Profile</span>
+                    <div class="hidden absolute left-14 bg-[#0A192F] text-white text-xs px-2 py-1 rounded border border-[#304C6B] opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none whitespace-nowrap">Profile</div>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('chat') }}" class="nav-item flex items-center px-3 py-3 rounded-md transition-all group relative text-gray-400 hover:bg-[#0A192F] hover:text-[#64FFDA]">
+                    <i class="fa-solid fa-robot w-6 text-center text-lg"></i>
+                    <span class="nav-text ml-3 whitespace-nowrap transition-opacity duration-300">AI Copilot</span>
+                    <div class="hidden absolute left-14 bg-[#0A192F] text-white text-xs px-2 py-1 rounded border border-[#304C6B] opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none whitespace-nowrap">AI Copilot</div>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('reports') }}" class="nav-item flex items-center px-3 py-3 rounded-md transition-all group relative text-gray-400 hover:bg-[#0A192F] hover:text-[#64FFDA]">
+                    <i class="fa-solid fa-file-code w-6 text-center text-lg"></i>
+                    <span class="nav-text ml-3 whitespace-nowrap transition-opacity duration-300">Reports</span>
+                    <div class="hidden absolute left-14 bg-[#0A192F] text-white text-xs px-2 py-1 rounded border border-[#304C6B] opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none whitespace-nowrap">Reports</div>
+                </a>
+            </li>
+            <!-- Active Settings Tab -->
+            <li>
+                <a href="{{ url_for('settings') }}" class="nav-item flex items-center px-3 py-3 rounded-md transition-all group relative bg-[#64FFDA] text-[#0A192F] font-bold shadow-[0_0_15px_rgba(100,255,218,0.4)]">
+                    <i class="fa-solid fa-sliders w-6 text-center text-lg"></i>
+                    <span class="nav-text ml-3 whitespace-nowrap transition-opacity duration-300">Settings</span>
+                    <div class="hidden absolute left-14 bg-[#0A192F] text-white text-xs px-2 py-1 rounded border border-[#304C6B] opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none whitespace-nowrap">Settings</div>
+                </a>
+            </li>
+        </ul>
+    </nav>
+
+    <!-- Desktop Collapse Button -->
+    <div class="hidden lg:flex p-4 border-t border-[#304C6B] justify-end">
+        <button id="desktop-collapse-btn" class="text-gray-400 hover:text-[#64FFDA] transition-colors p-2 rounded-md hover:bg-[#0A192F]">
+            <i class="fa-solid fa-chevron-left transition-transform duration-300" id="collapse-icon"></i>
+        </button>
+    </div>
+
+    <!-- Logout -->
+    <div class="p-4 border-t border-[#304C6B]">
+        <a href="{{ url_for('logout') }}" class="flex items-center px-3 py-2 text-gray-400 hover:text-red-400 hover:bg-red-900/10 rounded-md transition-colors group relative">
+            <i class="fa-solid fa-arrow-right-from-bracket w-6 text-center text-lg"></i>
+            <span class="nav-text ml-3 font-medium whitespace-nowrap transition-opacity duration-300">Logout</span>
+            <div class="hidden absolute left-14 bg-[#0A192F] text-white text-xs px-2 py-1 rounded border border-[#304C6B] opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none whitespace-nowrap">Logout</div>
+        </a>
+    </div>
+  </aside>
+
+  <!-- Overlay -->
+  <div id="sidebar-overlay" class="fixed inset-0 bg-black/60 z-30 hidden lg:hidden backdrop-blur-sm transition-opacity"></div>
+
+  <!-- MAIN CONTENT -->
+  <main id="main-content" class="flex-1 p-6 lg:p-10 lg:ml-64 w-full h-screen overflow-y-auto transition-all duration-300">
+    
+    <!-- Flash Messages -->
+    <div id="flash-messages" class="max-w-6xl mx-auto mb-6">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="p-4 rounded-md mb-4 text-sm font-medium border flex items-center justify-between shadow-lg
+                  {{ 'bg-green-900/20 text-[#64FFDA] border-[#64FFDA]' if category == 'success' else 'bg-red-900/20 text-red-400 border-red-500' }}">
+                <span><i class="fa-solid {{ 'fa-check-circle' if category == 'success' else 'fa-exclamation-circle' }} mr-2"></i> {{ message }}</span>
+                <button onclick="this.parentElement.style.display='none'" class="text-opacity-50 hover:text-opacity-100"><i class="fa-solid fa-times"></i></button>
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+    </div>
+
+    <div class="max-w-6xl mx-auto pb-20">
+        
+        <!-- Header -->
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 border-b border-gray-700 pb-6">
+            <div>
+                <h1 class="text-3xl font-bold text-white flex items-center">
+                    <i class="fa-solid fa-sliders text-[#64FFDA] mr-3"></i> App Settings
+                </h1>
+                <p class="text-gray-400 mt-2">Configure AI behavior and analysis preferences.</p>
+            </div>
+            <button type="submit" form="settings-form" class="btn-primary py-2.5 px-6 rounded-md mt-4 md:mt-0 flex items-center group">
+                <i class="fa-solid fa-floppy-disk mr-2 group-hover:scale-110 transition-transform"></i> Save Changes
+            </button>
+        </div>
+
+        <form id="settings-form" action="{{ url_for('settings') }}" method="POST" class="space-y-8">
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                
+                <!-- 1. AI Personality & Logic -->
+                <div class="glass-card rounded-xl p-6">
+                    <div class="flex items-center mb-6 border-b border-[#304C6B] pb-4">
+                        <i class="fa-solid fa-brain text-[#64FFDA] text-lg mr-3"></i>
+                        <h2 class="text-lg font-semibold text-white">AI Configuration</h2>
+                    </div>
+                    
+                    <div class="space-y-6">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 mb-2 uppercase tracking-wider">Analysis Mode</label>
+                            <select name="ai_mode" class="form-select w-full rounded-lg p-3 text-sm">
+                                <option value="balanced" selected>Balanced Copilot (Recommended)</option>
+                                <option value="strict">Strict Auditor (Security Focused)</option>
+                                <option value="teacher">Educational (Explains Concepts)</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between mb-2">
+                                <label class="block text-xs font-medium text-gray-400 uppercase tracking-wider">Strictness Level</label>
+                                <span class="text-xs text-[#64FFDA]">High</span>
+                            </div>
+                            <input type="range" min="1" max="100" value="75" class="w-full">
+                            <p class="text-xs text-gray-500 mt-2">Higher strictness flags minor code smells.</p>
+                        </div>
+
+                        <div class="flex items-center justify-between p-3 bg-[#112240] rounded-lg border border-[#304C6B]">
+                            <div>
+                                <span class="text-sm font-medium text-white block">Auto-Fix Suggestions</span>
+                                <span class="text-xs text-gray-400">AI will attempt to generate patch code.</span>
+                            </div>
+                            <div class="relative inline-block w-10 align-middle select-none">
+                                <input type="checkbox" name="auto_fix" id="toggle-autofix" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer" checked/>
+                                <label for="toggle-autofix" class="toggle-label block overflow-hidden h-5 rounded-full bg-gray-700 cursor-pointer"></label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Code Standards -->
+                <div class="glass-card rounded-xl p-6">
+                    <div class="flex items-center mb-6 border-b border-[#304C6B] pb-4">
+                        <i class="fa-solid fa-code text-[#64FFDA] text-lg mr-3"></i>
+                        <h2 class="text-lg font-semibold text-white">Code Standards</h2>
+                    </div>
+                    
+                    <div class="space-y-6">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 mb-2 uppercase tracking-wider">Primary Language</label>
+                            <select name="language" class="form-select w-full rounded-lg p-3 text-sm">
+                                <option value="python" selected>Python</option>
+                                <option value="javascript">JavaScript / Node.js</option>
+                                <option value="cpp">C++</option>
+                                <option value="java">Java</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 mb-2 uppercase tracking-wider">Linting Style</label>
+                            <select name="style" class="form-select w-full rounded-lg p-3 text-sm">
+                                <option value="pep8">PEP 8 (Standard)</option>
+                                <option value="google">Google Style Guide</option>
+                                <option value="airbnb">Airbnb (JS)</option>
+                            </select>
+                        </div>
+
+                        <div class="flex items-center justify-between p-3 bg-[#112240] rounded-lg border border-[#304C6B]">
+                            <div>
+                                <span class="text-sm font-medium text-white block">Performance Check</span>
+                                <span class="text-xs text-gray-400">Flag O(n²) loops & memory leaks.</span>
+                            </div>
+                            <div class="relative inline-block w-10 align-middle select-none">
+                                <input type="checkbox" name="perf_mode" id="toggle-perf" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer"/>
+                                <label for="toggle-perf" class="toggle-label block overflow-hidden h-5 rounded-full bg-gray-700 cursor-pointer"></label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. Custom Instructions -->
+            <div class="glass-card rounded-xl p-6">
+                <div class="flex items-center mb-4">
+                    <i class="fa-solid fa-terminal text-[#64FFDA] text-lg mr-3"></i>
+                    <h2 class="text-lg font-semibold text-white">Custom System Instructions</h2>
+                </div>
+                <p class="text-sm text-gray-400 mb-3">Define specific rules for BugHawk AI.</p>
+                <textarea name="system_prompt" rows="4" class="form-textarea w-full rounded-lg p-4 font-mono text-sm leading-relaxed" placeholder="Example: Always prioritize security vulnerabilities over performance."></textarea>
+            </div>
+
+            <!-- 4. Danger Zone -->
+            <div class="rounded-xl p-6 border border-red-900/50 bg-red-900/5">
+                <h2 class="text-lg font-semibold text-red-400 mb-4 flex items-center">
+                    <i class="fa-solid fa-triangle-exclamation mr-2"></i> Danger Zone
+                </h2>
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <button type="button" id="btn-clear-history" class="btn-danger py-2.5 px-4 rounded-md font-medium text-sm flex items-center justify-center">
+                        <i class="fa-solid fa-eraser mr-2"></i> Clear Chat History
+                    </button>
+                    <button type="button" id="btn-restore-defaults" class="btn-danger py-2.5 px-4 rounded-md font-medium text-sm flex items-center justify-center">
+                        <i class="fa-solid fa-rotate-left mr-2"></i> Restore Defaults
+                    </button>
+                </div>
+            </div>
+
+        </form>
+    </div>
+  </main>
+
+  <!-- Universal Sidebar & Page Logic -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Elements
+        const sidebar = document.getElementById('sidebar');
+        const mainContent = document.getElementById('main-content');
+        const mobileToggle = document.getElementById('mobile-toggle');
+        const mobileClose = document.getElementById('mobile-close');
+        const overlay = document.getElementById('sidebar-overlay');
+        const desktopCollapseBtn = document.getElementById('desktop-collapse-btn');
+        const collapseIcon = document.getElementById('collapse-icon');
+        const navTexts = document.querySelectorAll('.nav-text');
+        const logoText = document.querySelector('.logo-text');
+        const tooltips = document.querySelectorAll('.group > div.absolute');
+
+        // --- 1. Desktop Collapse Logic ---
+        function setCollapsedState(isCollapsed) {
+            if (window.innerWidth < 1024) return; 
+
+            if (isCollapsed) {
+                // Collapse
+                sidebar.classList.remove('w-64');
+                sidebar.classList.add('w-20');
+                
+                if(mainContent) {
+                    mainContent.classList.remove('lg:ml-64');
+                    mainContent.classList.add('lg:ml-20');
+                }
+
+                navTexts.forEach(text => {
+                    text.classList.add('opacity-0', 'hidden');
+                });
+                if(logoText) logoText.classList.add('opacity-0', 'hidden');
+                if(collapseIcon) collapseIcon.classList.add('rotate-180');
+                tooltips.forEach(t => t.classList.remove('hidden'));
+
+            } else {
+                // Expand
+                sidebar.classList.add('w-64');
+                sidebar.classList.remove('w-20');
+
+                if(mainContent) {
+                    mainContent.classList.add('lg:ml-64');
+                    mainContent.classList.remove('lg:ml-20');
+                }
+
+                navTexts.forEach(text => {
+                    text.classList.remove('hidden');
+                    setTimeout(() => text.classList.remove('opacity-0'), 50);
+                });
+                if(logoText) {
+                    logoText.classList.remove('hidden');
+                    setTimeout(() => logoText.classList.remove('opacity-0'), 50);
+                }
+                if(collapseIcon) collapseIcon.classList.remove('rotate-180');
+                tooltips.forEach(t => t.classList.add('hidden'));
+            }
+            localStorage.setItem('sidebarCollapsed', isCollapsed);
+        }
+
+        const savedState = localStorage.getItem('sidebarCollapsed') === 'true';
+        setCollapsedState(savedState);
+
+        if(desktopCollapseBtn) {
+            desktopCollapseBtn.addEventListener('click', () => {
+                const isCurrentlyCollapsed = sidebar.classList.contains('w-20');
+                setCollapsedState(!isCurrentlyCollapsed);
+            });
+        }
+
+        // --- 2. Mobile Logic ---
+        function toggleMobileMenu() {
+            const isClosed = sidebar.classList.contains('-translate-x-full');
+            if (isClosed) {
+                sidebar.classList.remove('-translate-x-full');
+                overlay.classList.remove('hidden');
+            } else {
+                sidebar.classList.add('-translate-x-full');
+                overlay.classList.add('hidden');
+            }
+        }
+
+        if(mobileToggle) mobileToggle.addEventListener('click', toggleMobileMenu);
+        if(mobileClose) mobileClose.addEventListener('click', toggleMobileMenu);
+        if(overlay) overlay.addEventListener('click', toggleMobileMenu);
+
+        // --- 3. Danger Zone Button Logic ---
+        const handleAction = async (btnId, endpoint, successMsg) => {
+            const btn = document.getElementById(btnId);
+            if(!btn) return;
+
+            btn.addEventListener('click', async () => {
+                if(!confirm('Are you sure? This action cannot be undone.')) return;
+
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i> Processing...';
+                btn.disabled = true;
+
+                try {
+                    const response = await fetch(endpoint, { 
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    const data = await response.json();
+
+                    if(response.ok) {
+                        if(btnId === 'btn-clear-history') {
+                            localStorage.removeItem('bughawk_chats');
+                            localStorage.removeItem('bughawk_history');
+                        }
+                        alert(successMsg);
+                        location.reload(); 
+                    } else {
+                        alert('Error: ' + data.message);
+                    }
+                } catch (err) {
+                    alert('Network error. Please try again.');
+                } finally {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }
+            });
+        };
+
+        handleAction('btn-clear-history', '/api/settings/clear_history', 'Chat history cleared!');
+        handleAction('btn-restore-defaults', '/api/settings/restore_defaults', 'Default settings restored.');
+
+        // Flash message dismiss
+        setTimeout(() => {
+            const flashMsg = document.getElementById('flash-messages');
+            if (flashMsg) {
+                flashMsg.style.transition = 'opacity 0.5s ease';
+                flashMsg.style.opacity = '0';
+                setTimeout(() => flashMsg.style.display = 'none', 500);
+            }
+        }, 4000);
+    });
+  </script>
+</body>
+</html>

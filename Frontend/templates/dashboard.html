@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard - BugHawk</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Chart.js (Required for the graph) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Fonts & Icons -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+
+  <style>
+    /* --- Core Theme --- */
+    body { font-family: 'Inter', sans-serif; background-color: #0A192F; color: #CCD6F6; }
+    
+    /* --- Custom Scrollbars --- */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #0A192F; }
+    ::-webkit-scrollbar-thumb { background: #304C6B; border-radius: 4px; border: 1px solid #112240; }
+    ::-webkit-scrollbar-thumb:hover { background: #64FFDA; }
+
+    /* --- Glassmorphism --- */
+    .glass-card {
+      background: rgba(17, 34, 64, 0.7);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(100, 255, 218, 0.1);
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      transition: all 0.3s ease;
+    }
+    .glass-card:hover {
+      border-color: rgba(100, 255, 218, 0.3);
+      box-shadow: 0 10px 30px -10px rgba(2, 12, 27, 0.7);
+      transform: translateY(-2px);
+    }
+
+    /* --- Sidebar Transition --- */
+    #sidebar { transition: width 0.3s ease-in-out, transform 0.3s ease-in-out; }
+    .nav-text { transition: opacity 0.2s ease-in-out; }
+    
+    /* --- Specific Dashboard Elements --- */
+    .health-score-gradient {
+      background: radial-gradient(circle, rgba(100, 255, 218, 0.15) 0%, rgba(10, 25, 47, 0) 70%);
+    }
+    .repo-active {
+      border-left: 4px solid #64FFDA;
+      background: linear-gradient(90deg, rgba(100, 255, 218, 0.1) 0%, transparent 100%);
+    }
+    
+    /* --- Buttons --- */
+    .btn-primary {
+      background-color: #64FFDA;
+      color: #0A192F;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      box-shadow: 0 0 10px rgba(100, 255, 218, 0.1);
+    }
+    .btn-primary:hover {
+      background-color: #0A192F;
+      color: #64FFDA;
+      box-shadow: 0 0 20px rgba(100, 255, 218, 0.4);
+      border: 1px solid #64FFDA;
+    }
+  </style>
+</head>
+
+<body class="min-h-screen flex bg-[#0A192F]">
+
+  <!-- 1. Mobile Toggle Button -->
+  <div class="lg:hidden fixed top-4 left-4 z-50">
+    <button id="mobile-toggle" class="p-2 bg-[#112240] text-[#64FFDA] rounded-md shadow-lg border border-[#304C6B] hover:bg-[#1A365D]">
+        <i class="fa-solid fa-bars"></i>
+    </button>
+  </div>
+
+  <!-- 2. Universal Collapsible Sidebar -->
+  <aside id="sidebar" class="fixed top-0 left-0 z-40 h-screen transition-all duration-300 ease-in-out bg-[#112240] border-r border-[#304C6B] flex flex-col
+             w-64 -translate-x-full lg:translate-x-0 group/sidebar shadow-2xl">
+    
+    <!-- Logo Area -->
+    <div class="h-16 flex items-center justify-between px-4 border-b border-[#304C6B]">
+        <a href="{{ url_for('index') }}" class="flex items-center space-x-3 overflow-hidden">
+            <img src="{{ url_for('static', filename='bughawk_logo.jpg') }}" alt="Logo" class="h-8 w-8 rounded-full border border-[#64FFDA] flex-shrink-0" />
+            <span class="logo-text text-lg font-bold text-white tracking-wider whitespace-nowrap transition-opacity duration-300 opacity-100">BugHawk</span>
+        </a>
+        <!-- Mobile Close Button -->
+        <button id="mobile-close" class="lg:hidden text-gray-400 hover:text-white">
+            <i class="fa-solid fa-times text-xl"></i>
+        </button>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="flex-1 py-4 overflow-y-auto overflow-x-hidden">
+        <ul class="space-y-1 px-2">
+            
+            <!-- Active State: Dashboard -->
+            <li>
+                <a href="{{ url_for('dashboard') }}" class="nav-item flex items-center px-3 py-3 rounded-md transition-all group relative bg-[#64FFDA] text-[#0A192F] font-bold shadow-[0_0_15px_rgba(100,255,218,0.4)]">
+                    <i class="fa-solid fa-chart-pie w-6 text-center text-lg"></i>
+                    <span class="nav-text ml-3 whitespace-nowrap transition-opacity duration-300 opacity-100">Dashboard</span>
+                    <div class="hidden absolute left-14 bg-[#0A192F] text-white text-xs px-2 py-1 rounded border border-[#304C6B] opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none whitespace-nowrap">Dashboard</div>
+                </a>
+            </li>
+
+            <li>
+                <a href="{{ url_for('profile') }}" class="nav-item flex items-center px-3 py-3 rounded-md transition-all group relative text-gray-400 hover:bg-[#0A192F] hover:text-[#64FFDA]">
+                    <i class="fa-solid fa-user w-6 text-center text-lg"></i>
+                    <span class="nav-text ml-3 whitespace-nowrap transition-opacity duration-300 opacity-100">Profile</span>
+                    <div class="hidden absolute left-14 bg-[#0A192F] text-white text-xs px-2 py-1 rounded border border-[#304C6B] opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none whitespace-nowrap">Profile</div>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('chat') }}" class="nav-item flex items-center px-3 py-3 rounded-md transition-all group relative text-gray-400 hover:bg-[#0A192F] hover:text-[#64FFDA]">
+                    <i class="fa-solid fa-robot w-6 text-center text-lg"></i>
+                    <span class="nav-text ml-3 whitespace-nowrap transition-opacity duration-300 opacity-100">AI Copilot</span>
+                    <div class="hidden absolute left-14 bg-[#0A192F] text-white text-xs px-2 py-1 rounded border border-[#304C6B] opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none whitespace-nowrap">AI Copilot</div>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('reports') }}" class="nav-item flex items-center px-3 py-3 rounded-md transition-all group relative text-gray-400 hover:bg-[#0A192F] hover:text-[#64FFDA]">
+                    <i class="fa-solid fa-file-code w-6 text-center text-lg"></i>
+                    <span class="nav-text ml-3 whitespace-nowrap transition-opacity duration-300 opacity-100">Reports</span>
+                    <div class="hidden absolute left-14 bg-[#0A192F] text-white text-xs px-2 py-1 rounded border border-[#304C6B] opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none whitespace-nowrap">Reports</div>
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('settings') }}" class="nav-item flex items-center px-3 py-3 rounded-md transition-all group relative text-gray-400 hover:bg-[#0A192F] hover:text-[#64FFDA]">
+                    <i class="fa-solid fa-sliders w-6 text-center text-lg"></i>
+                    <span class="nav-text ml-3 whitespace-nowrap transition-opacity duration-300 opacity-100">Settings</span>
+                    <div class="hidden absolute left-14 bg-[#0A192F] text-white text-xs px-2 py-1 rounded border border-[#304C6B] opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none whitespace-nowrap">Settings</div>
+                </a>
+            </li>
+        </ul>
+    </nav>
+
+    <!-- Desktop Collapse Button -->
+    <div class="hidden lg:flex p-4 border-t border-[#304C6B] justify-end">
+        <button id="desktop-collapse-btn" class="text-gray-400 hover:text-[#64FFDA] transition-colors p-2 rounded-md hover:bg-[#0A192F]">
+            <i class="fa-solid fa-chevron-left transition-transform duration-300" id="collapse-icon"></i>
+        </button>
+    </div>
+
+    <!-- Logout -->
+    <div class="p-4 border-t border-[#304C6B]">
+        <a href="{{ url_for('logout') }}" class="flex items-center px-3 py-2 text-gray-400 hover:text-red-400 hover:bg-red-900/10 rounded-md transition-colors group relative">
+            <i class="fa-solid fa-arrow-right-from-bracket w-6 text-center text-lg"></i>
+            <span class="nav-text ml-3 font-medium whitespace-nowrap transition-opacity duration-300 opacity-100">Logout</span>
+            <div class="hidden absolute left-14 bg-[#0A192F] text-white text-xs px-2 py-1 rounded border border-[#304C6B] opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none whitespace-nowrap">Logout</div>
+        </a>
+    </div>
+  </aside>
+
+  <!-- Overlay -->
+  <div id="sidebar-overlay" class="fixed inset-0 bg-black/60 z-30 hidden lg:hidden backdrop-blur-sm transition-opacity"></div>
+
+
+  <!-- 3. Main Content -->
+  <main id="main-content" class="flex-1 p-6 lg:p-10 lg:ml-64 w-full h-screen overflow-y-auto transition-all duration-300">
+    
+    <!-- Flash Messages -->
+    <div id="flash-messages" class="max-w-7xl mx-auto mb-6">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="p-4 rounded-md mb-4 text-sm font-medium border flex items-center justify-between shadow-lg
+                  {{ 'bg-green-900/20 text-[#64FFDA] border-[#64FFDA]' if category == 'success' else 'bg-red-900/20 text-red-400 border-red-500' }}">
+                <span><i class="fa-solid {{ 'fa-check-circle' if category == 'success' else 'fa-exclamation-circle' }} mr-2"></i> {{ message }}</span>
+                <button onclick="this.parentElement.style.display='none'" class="text-opacity-50 hover:text-opacity-100"><i class="fa-solid fa-times"></i></button>
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+    </div>
+
+    <div class="max-w-7xl mx-auto pb-20">
+      
+      <!-- Header Section -->
+      <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 border-b border-gray-700 pb-6">
+        <div>
+          <h1 class="text-3xl font-bold text-white flex items-center">
+             Dashboard
+          </h1>
+          <!-- Dynamic User Greeting -->
+          <p class="text-gray-400 mt-2 flex items-center">
+             <span class="w-2 h-2 rounded-full bg-[#64FFDA] mr-2 animate-pulse"></span>
+             Welcome back, <span class="text-white font-semibold ml-1">{{ current_user.full_name.split(' ')[0] | default('Developer') }}</span>!
+          </p>
+        </div>
+
+        <!-- New Analysis Button -->
+        <a href="{{ url_for('index') }}#analysis-section" class="btn-primary py-2.5 px-6 rounded-md mt-4 md:mt-0 flex items-center group">
+          <i class="fa-solid fa-plus-circle mr-2 group-hover:rotate-90 transition-transform"></i> 
+          New Analysis
+        </a>
+      </div>
+
+      <!-- Main Dashboard Grid -->
+      <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
+        
+        <!-- Check if any analysis data exists -->
+        {% if current_analysis.projectName %}
+          
+          <!-- Left Column: Project Details (Spans 2 columns on large screens) -->
+          <div class="xl:col-span-2 space-y-8">
+            
+            <!-- 1. Project Health Score Card -->
+            <div class="glass-card rounded-xl p-6 relative overflow-hidden">
+              <div class="absolute top-0 right-0 p-4 opacity-10">
+                  <i class="fa-solid fa-heart-pulse text-9xl text-[#64FFDA]"></i>
+              </div>
+              <h2 class="text-xl font-semibold text-white mb-6 flex items-center">
+                  <i class="fa-solid fa-code-branch text-[#64FFDA] mr-3"></i>
+                  Project Health: <span class="text-gray-300 ml-2 font-mono">{{ current_analysis.projectName }}</span>
+              </h2>
+              
+              <div class="flex flex-col md:flex-row items-center gap-8 relative z-10">
+                <!-- Circular Grade -->
+                <div class="relative w-40 h-40 flex-shrink-0">
+                  <div class="absolute inset-0 health-score-gradient rounded-full animate-pulse"></div>
+                  <div class="absolute inset-1 bg-[#0A192F] rounded-full flex items-center justify-center border-4 
+                      {% if current_analysis.healthScore.grade in ['A', 'A+'] %} border-green-500
+                      {% elif current_analysis.healthScore.grade == 'B' %} border-blue-500
+                      {% else %} border-red-500 {% endif %}">
+                    <div class="text-center">
+                      <span class="text-5xl font-bold text-white">{{ current_analysis.healthScore.grade }}</span>
+                      <span class="text-xs text-gray-400 block mt-1 uppercase tracking-widest">{{ current_analysis.healthScore.status }}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Stats Grid -->
+                <div class="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center w-full">
+                  <div class="bg-[#112240] p-4 rounded-lg border border-[#304C6B]">
+                      <p class="text-2xl font-bold text-white">{{ current_analysis.issueCounts.security }}</p>
+                      <p class="text-xs text-gray-400 uppercase tracking-wider mt-1">Security</p>
+                  </div>
+                  <div class="bg-[#112240] p-4 rounded-lg border border-[#304C6B]">
+                      <p class="text-2xl font-bold text-white">{{ current_analysis.issueCounts.bugs }}</p>
+                      <p class="text-xs text-gray-400 uppercase tracking-wider mt-1">Bugs</p>
+                  </div>
+                  <div class="bg-[#112240] p-4 rounded-lg border border-[#304C6B]">
+                      <p class="text-2xl font-bold text-white">{{ current_analysis.issueCounts.performance }}</p>
+                      <p class="text-xs text-gray-400 uppercase tracking-wider mt-1">Perf</p>
+                  </div>
+                  <div class="bg-[#112240] p-4 rounded-lg border border-[#304C6B]">
+                      <p class="text-2xl font-bold text-white">{{ current_analysis.issueCounts.codeSmells }}</p>
+                      <p class="text-xs text-gray-400 uppercase tracking-wider mt-1">Smells</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 2. Bug Trends Chart -->
+            <div class="glass-card rounded-xl p-6">
+              <h2 class="text-xl font-semibold text-white mb-4 flex items-center">
+                  <i class="fa-solid fa-arrow-trend-up text-[#64FFDA] mr-3"></i> Bug Trends
+              </h2>
+              <div class="h-64 w-full">
+                  <canvas id="bugTrendChart"></canvas>
+              </div>
+            </div>
+
+            <!-- 3. Recent High Priority Issues -->
+            <div class="glass-card rounded-xl p-6">
+              <h2 class="text-xl font-semibold text-white mb-4 flex items-center">
+                  <i class="fa-solid fa-triangle-exclamation text-red-400 mr-3"></i> High Priority Issues
+              </h2>
+              <div class="space-y-3">
+                {% for issue in current_analysis.priorityIssues %}
+                <div class="flex items-start justify-between p-4 bg-[#112240] rounded-lg border border-[#304C6B] hover:border-[#64FFDA] transition-colors group">
+                  <div>
+                    <p class="font-medium text-white group-hover:text-[#64FFDA] transition-colors">SQL Injection</p>
+                    <p class="text-sm text-gray-400 mt-1 font-mono">
+                        <i class="fa-regular fa-file-code mr-1"></i> {{ issue.file }}:{{ issue.line }}
+                    </p>
+                  </div>
+                  {% if issue.severity == 'CRITICAL' %}
+                  <span class="text-xs font-bold text-red-400 px-2 py-1 bg-red-900/20 rounded border border-red-900/50">CRITICAL</span>
+                  {% else %}
+                  <span class="text-xs font-bold text-yellow-400 px-2 py-1 bg-yellow-900/20 rounded border border-yellow-900/50">MAJOR</span>
+                  {% endif %}
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        
+        {% else %}
+          <!-- EMPTY STATE (If no analysis found) -->
+          <div class="xl:col-span-2 space-y-8">
+             <div class="glass-card rounded-xl p-12 text-center border-2 border-dashed border-[#304C6B]">
+                <div class="w-20 h-20 bg-[#112240] rounded-full flex items-center justify-center mx-auto mb-6">
+                    <i class="fa-solid fa-rocket text-4xl text-[#64FFDA]"></i>
+                </div>
+                <h2 class="text-3xl font-bold text-white mb-4">Welcome to BugHawk!</h2>
+                <p class="text-gray-400 text-lg mb-8 max-w-lg mx-auto">You don't have any analyzed repositories yet. Run your first analysis to see your project's health score.</p>
+                <a href="{{ url_for('index') }}#analysis-section" class="btn-primary font-bold py-3 px-8 rounded-md text-lg inline-flex items-center">
+                  <i class="fa-solid fa-play mr-2"></i> Run First Analysis
+                </a>
+             </div>
+          </div>
+        {% endif %}
+
+        <!-- Right Column: My Repositories List -->
+        <div class="xl:col-span-1">
+            <div class="glass-card rounded-xl p-6 sticky top-6 max-h-[85vh] flex flex-col">
+                <h2 class="text-xl font-semibold text-white mb-4 flex items-center">
+                    <i class="fa-solid fa-folder-open text-[#64FFDA] mr-3"></i> My Repositories
+                </h2>
+                
+                <div class="space-y-3 overflow-y-auto pr-2 custom-scrollbar flex-1">
+                    {% for analysis in all_analyses %}
+                    <a href="{{ url_for('view_analysis', analysis_id=analysis.id) }}"
+                       class="block p-4 bg-[#112240] rounded-lg border border-transparent hover:border-[#64FFDA] transition-all group
+                              {% if current_analysis.projectName == analysis.project_name %} repo-active bg-gradient-to-r from-[#1A365D] to-[#112240] {% endif %}">
+                        <div class="flex justify-between items-start">
+                            <p class="font-bold text-white truncate w-3/4 group-hover:text-[#64FFDA] transition-colors">{{ analysis.project_name }}</p>
+                            <span class="text-xs font-mono text-gray-500">{{ analysis.timestamp | time_ago }}</span>
+                        </div>
+                        <div class="flex items-center mt-3">
+                            <span class="text-xs font-bold px-2 py-0.5 rounded 
+                                {% if analysis.health_score_grade in ['A', 'A+'] %} bg-green-900/30 text-green-400
+                                {% elif analysis.health_score_grade == 'B' %} bg-blue-900/30 text-blue-400
+                                {% else %} bg-red-900/30 text-red-400 {% endif %}">
+                                Grade: {{ analysis.health_score_grade }}
+                            </span>
+                        </div>
+                    </a>
+                    {% else %}
+                    <div class="text-center py-8">
+                        <p class="text-gray-500 text-sm">No repositories found.</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <!-- Scripts -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      
+      // --- 1. Sidebar Logic ---
+      const sidebar = document.getElementById('sidebar');
+      const mainContent = document.getElementById('main-content');
+      const mobileToggle = document.getElementById('mobile-toggle');
+      const mobileClose = document.getElementById('mobile-close');
+      const overlay = document.getElementById('sidebar-overlay');
+      const desktopCollapseBtn = document.getElementById('desktop-collapse-btn');
+      const collapseIcon = document.getElementById('collapse-icon');
+      const navTexts = document.querySelectorAll('.nav-text');
+      const logoText = document.querySelector('.logo-text');
+      const tooltips = document.querySelectorAll('.group > div.absolute');
+
+      function setCollapsedState(isCollapsed) {
+          if (window.innerWidth < 1024) return; // Don't run on mobile
+
+          if (isCollapsed) {
+              // Collapse
+              sidebar.classList.remove('w-64');
+              sidebar.classList.add('w-20');
+              
+              if(mainContent) {
+                  mainContent.classList.remove('lg:ml-64');
+                  mainContent.classList.add('lg:ml-20');
+              }
+
+              navTexts.forEach(text => text.classList.add('opacity-0', 'hidden'));
+              if(logoText) logoText.classList.add('opacity-0', 'hidden');
+              if(collapseIcon) collapseIcon.classList.add('rotate-180');
+              tooltips.forEach(t => t.classList.remove('hidden'));
+
+          } else {
+              // Expand
+              sidebar.classList.add('w-64');
+              sidebar.classList.remove('w-20');
+
+              if(mainContent) {
+                  mainContent.classList.add('lg:ml-64');
+                  mainContent.classList.remove('lg:ml-20');
+              }
+
+              navTexts.forEach(text => {
+                  text.classList.remove('hidden');
+                  setTimeout(() => text.classList.remove('opacity-0'), 50);
+              });
+              if(logoText) {
+                  logoText.classList.remove('hidden');
+                  setTimeout(() => logoText.classList.remove('opacity-0'), 50);
+              }
+              if(collapseIcon) collapseIcon.classList.remove('rotate-180');
+              tooltips.forEach(t => t.classList.add('hidden'));
+          }
+          localStorage.setItem('sidebarCollapsed', isCollapsed);
+      }
+
+      // Restore State
+      const savedState = localStorage.getItem('sidebarCollapsed') === 'true';
+      setCollapsedState(savedState);
+
+      if(desktopCollapseBtn) {
+          desktopCollapseBtn.addEventListener('click', () => {
+              const isCurrentlyCollapsed = sidebar.classList.contains('w-20');
+              setCollapsedState(!isCurrentlyCollapsed);
+          });
+      }
+
+      function toggleMobileMenu() {
+          const isClosed = sidebar.classList.contains('-translate-x-full');
+          if (isClosed) {
+              sidebar.classList.remove('-translate-x-full');
+              overlay.classList.remove('hidden');
+          } else {
+              sidebar.classList.add('-translate-x-full');
+              overlay.classList.add('hidden');
+          }
+      }
+
+      if(mobileToggle) mobileToggle.addEventListener('click', toggleMobileMenu);
+      if(mobileClose) mobileClose.addEventListener('click', toggleMobileMenu);
+      if(overlay) overlay.addEventListener('click', toggleMobileMenu);
+
+
+      // --- 2. Chart.js Logic (FIXED) ---
+      // Safely injecting the JSON using Jinja2 without wrapping it in quotes
+      // Corrected Line: Ensures output is always a valid JSON Object, not a string.
+    const chartDataObj = (
+    {"critical":[3,1,2,0,0], "major":[5,4,1,3,2]}
+);
+
+
+
+      const canvas = document.getElementById('bugTrendChart');
+      if (canvas) {
+        const ctx = canvas.getContext('2d');
+        
+        // Gradient for lines
+        const gradientCritical = ctx.createLinearGradient(0, 0, 0, 400);
+        gradientCritical.addColorStop(0, 'rgba(244, 67, 54, 0.5)');
+        gradientCritical.addColorStop(1, 'rgba(244, 67, 54, 0.0)');
+
+        const gradientMajor = ctx.createLinearGradient(0, 0, 0, 400);
+        gradientMajor.addColorStop(0, 'rgba(255, 152, 0, 0.5)');
+        gradientMajor.addColorStop(1, 'rgba(255, 152, 0, 0.0)');
+
+        new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Today'],
+            datasets: [
+              {
+                label: 'Critical Bugs',
+                data: chartDataObj.critical,
+                borderColor: '#F44336',
+                backgroundColor: gradientCritical,
+                fill: true,
+                tension: 0.4,
+                pointBackgroundColor: '#F44336',
+                pointBorderColor: '#fff'
+              },
+              {
+                label: 'Major Bugs',
+                data: chartDataObj.major,
+                borderColor: '#FF9800',
+                backgroundColor: gradientMajor,
+                fill: true,
+                tension: 0.4,
+                pointBackgroundColor: '#FF9800',
+                pointBorderColor: '#fff'
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { labels: { color: '#94A3B8', font: { family: 'Inter' } } }
+            },
+            scales: {
+              y: {
+                ticks: { color: '#94A3B8' },
+                grid: { color: 'rgba(48, 76, 107, 0.3)' },
+                beginAtZero: true
+              },
+              x: {
+                ticks: { color: '#94A3B8' },
+                grid: { display: false }
+              }
+            }
+          }
+        });
+      }
+
+      // --- 3. Flash message auto-dismiss ---
+      setTimeout(() => {
+        const flashMsgContainer = document.getElementById('flash-messages');
+        if (flashMsgContainer) {
+            flashMsgContainer.style.transition = 'opacity 0.5s ease';
+            flashMsgContainer.style.opacity = '0';
+            setTimeout(() => { flashMsgContainer.style.display = 'none'; }, 500);
+        }
+      }, 4000);
+    });
+  </script>
+</body>
+</html>

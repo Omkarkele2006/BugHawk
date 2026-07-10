@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Profile - BugHawk</title>
+    
+    <!-- Tailwind & Assets -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+    
+    <style>
+        /* --- Core Theme (Consistent with Main.html) --- */
+        body { font-family: 'Inter', sans-serif; background-color: #0A192F; color: #CCD6F6; }
+        
+        /* --- Custom Scrollbars --- */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0A192F; }
+        ::-webkit-scrollbar-thumb { background: #304C6B; border-radius: 4px; border: 1px solid #112240; }
+        ::-webkit-scrollbar-thumb:hover { background: #64FFDA; }
+
+        /* --- Glassmorphism Cards --- */
+        .glass-card {
+            background: rgba(17, 34, 64, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(100, 255, 218, 0.1);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+        .glass-card:hover {
+            border-color: rgba(100, 255, 218, 0.3);
+            box-shadow: 0 10px 30px -10px rgba(2, 12, 27, 0.7);
+        }
+
+        /* --- Form Inputs --- */
+        .form-input, .form-select {
+            background-color: #0d1117; /* Darker input bg */
+            border: 1px solid #304C6B;
+            color: #CCD6F6;
+            transition: all 0.2s ease;
+        }
+        .form-input:focus, .form-select:focus {
+            border-color: #64FFDA;
+            outline: none;
+            box-shadow: 0 0 0 1px #64FFDA;
+            background-color: #112240;
+        }
+        .form-input:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            background-color: #1a202c;
+        }
+
+        /* --- Buttons --- */
+        .btn-primary {
+            background-color: #64FFDA;
+            color: #0A192F;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            box-shadow: 0 0 10px rgba(100, 255, 218, 0.1);
+        }
+        .btn-primary:hover {
+            background-color: #0A192F;
+            color: #64FFDA;
+            box-shadow: 0 0 20px rgba(100, 255, 218, 0.4);
+            border: 1px solid #64FFDA;
+        }
+
+        /* --- Toggle Switch --- */
+        .toggle-checkbox:checked { right: 0; border-color: #64FFDA; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #64FFDA; }
+        .toggle-label { width: 40px; height: 20px; background-color: #304C6B; }
+        
+        /* Sidebar Transition */
+        #sidebar { transition: transform 0.3s ease-in-out; }
+    </style>
+</head>
+
+<body class="min-h-screen flex bg-[#0A192F]">
+
+    <!-- MOBILE TOGGLE BUTTON -->
+    <div class="lg:hidden fixed top-4 left-4 z-50">
+        <button id="mobile-menu-btn" class="p-2 bg-[#112240] text-[#64FFDA] rounded-md shadow-lg border border-[#304C6B] hover:bg-[#1A365D]">
+            <i class="fa-solid fa-bars"></i>
+        </button>
+    </div>
+
+    <!-- UNIVERSAL SIDEBAR -->
+    <aside id="sidebar" class="fixed top-0 left-0 z-40 w-64 h-screen -translate-x-full lg:translate-x-0 bg-[#112240] border-r border-[#304C6B] flex flex-col shadow-2xl">
+        <!-- Logo -->
+        <div class="p-6 flex items-center justify-between border-b border-[#304C6B]">
+            <a href="{{ url_for('index') }}" class="flex items-center space-x-3">
+                <img src="{{ url_for('static', filename='bughawk_logo.jpg') }}" alt="Logo" class="h-10 w-10 rounded-full border-2 border-[#64FFDA] shadow-[0_0_10px_rgba(100,255,218,0.3)]" />
+                <span class="text-xl font-bold text-white tracking-wider">BugHawk</span>
+            </a>
+            <button id="close-sidebar-btn" class="lg:hidden text-gray-400 hover:text-[#64FFDA] transition-colors">
+                <i class="fa-solid fa-times text-xl"></i>
+            </button>
+        </div>
+
+        <!-- Nav Links -->
+        <nav class="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+            <a href="{{ url_for('dashboard') }}" class="flex items-center px-4 py-3 text-gray-400 hover:bg-[#0A192F] hover:text-[#64FFDA] rounded-md transition-all group">
+                <i class="fa-solid fa-chart-pie w-5 h-5 mr-3 group-hover:scale-110 transition-transform"></i> 
+                <span class="font-medium">Dashboard</span>
+            </a>
+            
+            <!-- Active State: Profile -->
+            <a href="{{ url_for('profile') }}" class="flex items-center px-4 py-3 text-[#0A192F] bg-[#64FFDA] rounded-md font-bold shadow-[0_0_15px_rgba(100,255,218,0.4)] transition-all">
+                <i class="fa-solid fa-user w-5 h-5 mr-3"></i> 
+                <span>Profile</span>
+            </a>
+
+            <a href="{{ url_for('chat') }}" class="flex items-center px-4 py-3 text-gray-400 hover:bg-[#0A192F] hover:text-[#64FFDA] rounded-md transition-all group">
+                <i class="fa-solid fa-robot w-5 h-5 mr-3 group-hover:scale-110 transition-transform"></i> 
+                <span class="font-medium">AI Copilot</span>
+            </a>
+            <a href="{{ url_for('reports') }}" class="flex items-center px-4 py-3 text-gray-400 hover:bg-[#0A192F] hover:text-[#64FFDA] rounded-md transition-all group">
+                <i class="fa-solid fa-file-code w-5 h-5 mr-3 group-hover:scale-110 transition-transform"></i> 
+                <span class="font-medium">Reports</span>
+            </a>
+            <a href="{{ url_for('settings') }}" class="flex items-center px-4 py-3 text-gray-400 hover:bg-[#0A192F] hover:text-[#64FFDA] rounded-md transition-all group">
+                <i class="fa-solid fa-sliders w-5 h-5 mr-3 group-hover:scale-110 transition-transform"></i> 
+                <span class="font-medium">Settings</span>
+            </a>
+        </nav>
+
+        <!-- Footer -->
+        <div class="p-4 border-t border-[#304C6B] bg-[#0A192F]">
+            <a href="{{ url_for('logout') }}" class="flex items-center px-4 py-2 text-gray-400 hover:text-red-400 transition-colors">
+                <i class="fa-solid fa-arrow-right-from-bracket w-5 h-5 mr-3"></i>
+                <span class="font-medium">Logout</span>
+            </a>
+        </div>
+    </aside>
+
+    <!-- Overlay -->
+    <div id="sidebar-overlay" class="fixed inset-0 bg-black/60 z-30 hidden lg:hidden backdrop-blur-sm transition-opacity"></div>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 p-6 lg:p-10 lg:ml-64 w-full h-screen overflow-y-auto">
+        <div class="max-w-6xl mx-auto pb-20">
+            
+            <!-- Flash Messages -->
+            <div id="flash-messages" class="mb-6">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                  {% if messages %}
+                    {% for category, message in messages %}
+                      <div class="p-4 rounded-md mb-4 text-sm font-medium border flex items-center justify-between shadow-lg
+                          {{ 'bg-green-900/20 text-[#64FFDA] border-[#64FFDA]' if category == 'success' else 'bg-red-900/20 text-red-400 border-red-500' }}">
+                        <span><i class="fa-solid {{ 'fa-check-circle' if category == 'success' else 'fa-exclamation-circle' }} mr-2"></i> {{ message }}</span>
+                        <button onclick="this.parentElement.style.display='none'" class="text-opacity-50 hover:text-opacity-100"><i class="fa-solid fa-times"></i></button>
+                      </div>
+                    {% endfor %}
+                  {% endif %}
+                {% endwith %}
+            </div>
+
+            <!-- Header -->
+            <div class="flex flex-col md:flex-row justify-between items-end mb-8 border-b border-gray-700 pb-6">
+                <div>
+                    <h1 class="text-3xl font-bold text-white flex items-center">
+                        <span class="bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">My Profile</span>
+                    </h1>
+                    <p class="text-gray-400 mt-2 flex items-center">
+                        <span class="w-2 h-2 rounded-full bg-[#64FFDA] mr-2 animate-pulse"></span>
+                        Manage your identity and security settings
+                    </p>
+                </div>
+                <div class="flex gap-4 mt-4 md:mt-0">
+                    <button type="submit" form="profile-form" class="btn-primary py-2.5 px-6 rounded-md flex items-center group">
+                        <i class="fa-solid fa-save mr-2 group-hover:rotate-12 transition-transform"></i> Save Changes
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                
+                <!-- Left Column: Personal Info -->
+                <div class="lg:col-span-2 space-y-8">
+                    <form id="profile-form" action="{{ url_for('profile') }}" method="POST">
+                        
+                        <!-- 1. Personal Information Card -->
+                        <div class="glass-card rounded-xl p-6">
+                            <div class="flex items-center mb-6">
+                                <div class="w-10 h-10 rounded-full bg-[#112240] flex items-center justify-center border border-[#304C6B] mr-4 text-[#64FFDA]">
+                                    <i class="fa-solid fa-user-astronaut text-xl"></i>
+                                </div>
+                                <h2 class="text-xl font-semibold text-white">Personal Details</h2>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-400 mb-1 uppercase tracking-wider">Full Name</label>
+                                    <input type="text" name="full_name" value="{{ current_user.full_name }}" class="form-input w-full rounded-lg p-3">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-400 mb-1 uppercase tracking-wider">Username (@)</label>
+                                    <input type="text" name="username" value="{{ current_user.username or '' }}" placeholder="dev_om" class="form-input w-full rounded-lg p-3">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-400 mb-1 uppercase tracking-wider">Email Address</label>
+                                    <div class="relative">
+                                        <input type="email" value="{{ current_user.email }}" class="form-input w-full rounded-lg p-3 pl-10 cursor-not-allowed text-gray-500" disabled>
+                                        <i class="fa-solid fa-lock absolute left-3 top-3.5 text-gray-500"></i>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-400 mb-1 uppercase tracking-wider">Phone</label>
+                                    <input type="tel" name="phone" value="{{ current_user.phone or '' }}" placeholder="+91 ..." class="form-input w-full rounded-lg p-3">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-400 mb-1 uppercase tracking-wider">Experience Level</label>
+                                    <select name="experience" class="form-select w-full rounded-lg p-3">
+                                        <option value="Beginner" {% if current_user.experience_level == 'Beginner' %}selected{% endif %}>Beginner (Student)</option>
+                                        <option value="Intermediate" {% if current_user.experience_level == 'Intermediate' %}selected{% endif %}>Intermediate</option>
+                                        <option value="Advanced" {% if current_user.experience_level == 'Advanced' %}selected{% endif %}>Advanced</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-400 mb-1 uppercase tracking-wider">Timezone</label>
+                                    <select name="timezone" class="form-select w-full rounded-lg p-3">
+                                        <option value="IST" {% if current_user.timezone == 'IST' %}selected{% endif %}>IST (India)</option>
+                                        <option value="UTC" {% if current_user.timezone == 'UTC' %}selected{% endif %}>UTC</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 2. Social Links Card -->
+                        <div class="glass-card rounded-xl p-6 mt-8">
+                            <div class="flex items-center mb-6">
+                                <div class="w-10 h-10 rounded-full bg-[#112240] flex items-center justify-center border border-[#304C6B] mr-4 text-[#64FFDA]">
+                                    <i class="fa-solid fa-share-nodes text-xl"></i>
+                                </div>
+                                <h2 class="text-xl font-semibold text-white">Social Profiles</h2>
+                            </div>
+                            <div class="space-y-4">
+                                <div class="flex rounded-lg shadow-sm">
+                                    <span class="inline-flex items-center px-4 rounded-l-lg border border-r-0 border-[#304C6B] bg-[#0d1117] text-gray-400">
+                                        <i class="fa-brands fa-github text-lg"></i>
+                                    </span>
+                                    <input type="url" name="github" value="{{ current_user.github_link or '' }}" placeholder="https://github.com/..." class="form-input flex-1 block w-full rounded-none rounded-r-lg p-3">
+                                </div>
+                                <div class="flex rounded-lg shadow-sm">
+                                    <span class="inline-flex items-center px-4 rounded-l-lg border border-r-0 border-[#304C6B] bg-[#0d1117] text-gray-400">
+                                        <i class="fa-brands fa-linkedin text-lg text-blue-500"></i>
+                                    </span>
+                                    <input type="url" name="linkedin" value="{{ current_user.linkedin_link or '' }}" placeholder="https://linkedin.com/in/..." class="form-input flex-1 block w-full rounded-none rounded-r-lg p-3">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 3. 2FA Toggle -->
+                        <div class="glass-card rounded-xl p-6 mt-8 border-l-4 border-l-[#64FFDA]">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center">
+                                    <div class="mr-4">
+                                        <h3 class="text-lg font-medium text-white">Two-Factor Authentication</h3>
+                                        <p class="text-sm text-gray-400 mt-1">Secure your account with OTP verification.</p>
+                                    </div>
+                                </div>
+                                <div class="relative inline-block w-12 mr-2 align-middle select-none transition duration-200 ease-in">
+                                    <input type="checkbox" name="2fa_toggle" id="toggle-2fa" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer" {% if current_user.two_factor_enabled %}checked{% endif %}/>
+                                    <label for="toggle-2fa" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-700 cursor-pointer"></label>
+                                </div>
+                            </div>
+                        </div>
+
+                    </form>
+                </div>
+
+                <!-- Right Column: Security & Sessions -->
+                <div class="space-y-8">
+                    
+                    <!-- Change Password -->
+                    <div class="glass-card rounded-xl p-6">
+                        <h3 class="text-lg font-semibold text-white mb-6 flex items-center">
+                            <i class="fa-solid fa-lock text-[#64FFDA] mr-2"></i> Security
+                        </h3>
+                        
+                        <form action="{{ url_for('change_password') }}" method="POST" class="space-y-4">
+                            {% if current_user.password_hash %}
+                            <div>
+                                <label class="block text-xs font-medium text-gray-400 mb-1 uppercase">Current Password</label>
+                                <input type="password" name="old_password" class="form-input w-full rounded-lg p-2.5 text-sm" required>
+                            </div>
+                            {% else %}
+                            <div class="text-xs text-blue-300 bg-blue-900/20 p-3 rounded border border-blue-800/50 mb-2 flex items-start">
+                                <i class="fa-brands fa-github mr-2 mt-0.5"></i>
+                                <span>You logged in via GitHub. Set a password to enable direct login.</span>
+                            </div>
+                            {% endif %}
+                            
+                            <div>
+                                <label class="block text-xs font-medium text-gray-400 mb-1 uppercase">New Password</label>
+                                <input type="password" name="new_password" class="form-input w-full rounded-lg p-2.5 text-sm" required minlength="8">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-400 mb-1 uppercase">Confirm Password</label>
+                                <input type="password" name="confirm_password" class="form-input w-full rounded-lg p-2.5 text-sm" required minlength="8">
+                            </div>
+                            <button type="submit" class="w-full bg-[#112240] hover:bg-[#1C2E4A] text-white font-medium py-2.5 px-4 rounded-lg border border-[#304C6B] transition-colors text-sm shadow-md mt-2">
+                                Update Password
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Active Sessions (Mockup for Impression) -->
+                    <div class="glass-card rounded-xl p-6">
+                        <h3 class="text-lg font-semibold text-white mb-4 flex items-center">
+                            <i class="fa-solid fa-laptop-code text-[#64FFDA] mr-2"></i> Active Devices
+                        </h3>
+                        <div class="space-y-4">
+                            <!-- Current Device -->
+                            <div class="flex items-center justify-between p-3 rounded-lg bg-[#64FFDA]/10 border border-[#64FFDA]/30">
+                                <div class="flex items-center">
+                                    <i class="fa-brands fa-windows text-xl text-white mr-3"></i>
+                                    <div>
+                                        <p class="text-sm font-bold text-white">Windows PC</p>
+                                        <p class="text-xs text-[#64FFDA]">Pune, MH • Current Session</p>
+                                    </div>
+                                </div>
+                                <span class="w-2 h-2 bg-[#64FFDA] rounded-full"></span>
+                            </div>
+                            
+                            <!-- Other Device -->
+                            <div class="flex items-center justify-between p-3 rounded-lg bg-[#112240] border border-[#304C6B] opacity-70 hover:opacity-100 transition-opacity">
+                                <div class="flex items-center">
+                                    <i class="fa-solid fa-mobile-screen text-xl text-gray-400 mr-3 pl-1"></i>
+                                    <div>
+                                        <p class="text-sm font-bold text-gray-300">Android Device</p>
+                                        <p class="text-xs text-gray-500">Pune, MH • 2h ago</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <button id="btn-logout-devices" type="button" class="w-full mt-6 text-xs text-red-400 hover:text-white border border-red-900/50 bg-red-900/10 hover:bg-red-600 py-2.5 rounded-lg transition-all active:scale-95">
+                            Sign Out All Other Devices
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- LOGIC: Sidebar & Flash Messages -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Sidebar Toggle
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            const mobileBtn = document.getElementById('mobile-menu-btn');
+            const closeBtn = document.getElementById('close-sidebar-btn');
+
+            function toggleSidebar() {
+                sidebar.classList.toggle('-translate-x-full');
+                overlay.classList.toggle('hidden');
+            }
+
+            if(mobileBtn) mobileBtn.addEventListener('click', toggleSidebar);
+            if(closeBtn) closeBtn.addEventListener('click', toggleSidebar);
+            if(overlay) overlay.addEventListener('click', toggleSidebar);
+
+            // Auto-dismiss Flash Messages
+            setTimeout(() => {
+                const flashMsg = document.getElementById('flash-messages');
+                if (flashMsg) {
+                    flashMsg.style.transition = 'opacity 0.5s ease';
+                    flashMsg.style.opacity = '0';
+                    setTimeout(() => flashMsg.style.display = 'none', 500);
+                }
+            }, 4000);
+            const logoutBtn = document.getElementById('btn-logout-devices');
+            if(logoutBtn) {
+                logoutBtn.addEventListener('click', async () => {
+                    if(!confirm('This will sign you out of all devices (including this one). Continue?')) return;
+
+                    const originalText = logoutBtn.innerText;
+                    logoutBtn.innerText = 'Signing out...';
+                    logoutBtn.disabled = true;
+
+                    try {
+                        const response = await fetch('/api/profile/logout_devices', { 
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' }
+                        });
+                        
+                        if(response.ok) {
+                            alert('Logged out successfully.');
+                            window.location.href = '/login'; // Redirect to login
+                        } else {
+                            const data = await response.json();
+                            alert('Error: ' + data.message);
+                            logoutBtn.innerText = originalText;
+                            logoutBtn.disabled = false;
+                        }
+                    } catch (err) {
+                        alert('Network error.');
+                        logoutBtn.innerText = originalText;
+                        logoutBtn.disabled = false;
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Account - BugHawk</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            color: #CCD6F6;
+            background: linear-gradient(-45deg, #0A192F, #112240, #1C2E4A, #0A192F);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+        }
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        .glass-effect {
+            background: rgba(10, 25, 47, 0.85);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(42, 67, 101, 0.3);
+            transition: all 0.3s ease;
+        }
+        .glass-effect:hover {
+            box-shadow: 0 0 15px rgba(100, 255, 218, 0.3);
+            transform: translateY(-3px);
+        }
+        .form-input {
+            background-color: #112240;
+            border: 1px solid #304C6B;
+            color: #CCD6F6;
+            text-align: center;
+            font-size: 1.5rem;
+            letter-spacing: 0.5em;
+        }
+        .btn-primary {
+            background-color: #64FFDA;
+            color: #0A192F;
+            transition: all 0.3s ease;
+        }
+        .btn-primary:hover {
+            background-color: #0A192F;
+            color: #64FFDA;
+            box-shadow: 0 0 15px rgba(100, 255, 218, 0.4);
+        }
+        #particle-canvas {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; opacity: 0.2;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <canvas id="particle-canvas"></canvas>
+
+    <div class="w-full max-w-md relative z-10">
+        
+        <!-- Flash Message Container -->
+        <div class="w-full max-w-md z-50">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                {% for category, message in messages %}
+                  <div class="flash-message p-4 rounded-md shadow-lg mb-4 text-center font-medium {{ 'bg-[#64FFDA] text-[#0A192F]' if category == 'success' else 'bg-red-600 text-white' if category == 'danger' else 'bg-blue-600 text-white' }}">
+                    {{ message }}
+                  </div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+        </div>
+
+        <div class="text-center mb-8">
+            <a href="/">
+                <img src="{{ url_for('static', filename='bughawk_logo.jpg') }}" alt="BugHawk Logo" class="h-12 mx-auto rounded-full">
+            </a>
+            <h1 class="text-3xl font-bold text-white mt-4">Check Your Email</h1>
+            <p class="text-gray-400">We sent a 6-digit code to {{ email }}.</p>
+        </div>
+        <div class="glass-effect rounded-lg p-8 shadow-2xl">
+            <form action="{{ url_for('verify_otp') }}" method="POST">
+                
+                <label for="otp" class="block text-sm font-medium text-gray-300">Enter 6-Digit Code</label>
+                <input type="text" id="otp" name="otp"
+                       class="form-input w-full mt-1 rounded-md shadow-sm"
+                       required maxlength="6"
+                       autocomplete="one-time-code"
+                       pattern="\d{6}">
+                
+                <div class="mt-8">
+                    <button type="submit" class="w-full btn-primary font-bold py-3 px-4 rounded-md">
+                        Verify Account
+                    </button>
+                </div>
+            </form>
+            <p class="text-center text-sm text-gray-400 mt-6">
+                Didn't get a code? <a href="{{ url_for('signup') }}" class="font-medium text-[#64FFDA] hover:underline">Sign up again</a>
+            </p>
+        </div>
+    </div>
+    
+    <!-- Auto-dismiss script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', (event) => {
+            const flashMessages = document.querySelectorAll('.flash-message');
+            flashMessages.forEach(function(message) {
+                setTimeout(function() {
+                    message.style.transition = 'opacity 0.5s ease';
+                    message.style.opacity = '0';
+                    setTimeout(function() {
+                        message.style.display = 'none';
+                    }, 500); // Wait for fade out
+                }, 2000); // 2 seconds
+            });
+        });
+    </script>
+</body>
+</html>

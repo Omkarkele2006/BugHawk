@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BugHawk - AI-Powered Code Analysis</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    
+    <!-- Tostify CSS for Suggestion 3 -->
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+    
+    <style>
+        /* NEW: Suggestion 6 - Animated Gradient Background */
+        body {
+            font-family: 'Inter', sans-serif;
+            color: #CCD6F6;
+            overflow-x: hidden;
+            background: linear-gradient(-45deg, #0A192F, #112240, #1C2E4A, #0A192F);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .glass-effect {
+            background: rgba(10, 25, 47, 0.85);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(42, 67, 101, 0.3);
+            transition: all 0.3s ease; /* Added for smooth hover-out */
+        }
+
+        /* NEW: Suggestion 5 - Glow/Motion Effects */
+        .glass-effect:hover {
+            box-shadow: 0 0 15px rgba(100, 255, 218, 0.3);
+            transform: translateY(-3px);
+        }
+
+        .brand-gradient {
+            background: linear-gradient(90deg, #64FFDA, #00C6FF);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .btn-primary {
+            background-color: #64FFDA;
+            color: #0A192F;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            background-color: #0A192F;
+            color: #64FFDA;
+            box-shadow: 0 0 15px rgba(100, 255, 218, 0.4);
+        }
+
+        .btn-primary:disabled {
+            background-color: #304C6B;
+            color: #a3a3a3;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        #particle-canvas {
+            position: fixed; /* Use fixed to ensure it stays in background */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            opacity: 0.2;
+        }
+
+        /* NEW: Suggestion 4 - Headline Animation */
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .fade-in-down {
+            animation: fadeInDown 1s ease-out 0.2s forwards;
+            opacity: 0;
+        }
+
+        .fade-in-down-delay {
+            animation: fadeInDown 1s ease-out 0.5s forwards;
+            opacity: 0;
+        }
+
+        /* NEW: Suggestion 2 - Progress Bar */
+        .progress-bar-container {
+            width: 100%;
+            background-color: #112240;
+            border-radius: 5px;
+            overflow: hidden;
+            height: 8px;
+            transition: opacity 0.3s ease;
+        }
+
+        .progress-bar-inner {
+            width: 0%;
+            height: 100%;
+            background-color: #64FFDA;
+            transition: width 0.4s ease;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen">
+    <canvas id="particle-canvas"></canvas>
+
+    <div class="relative z-10 min-h-screen flex flex-col">
+        <!-- Header -->
+        <header class="py-6 px-4 sm:px-6 lg:px-8">
+            <div class="container mx-auto max-w-7xl flex justify-between items-center">
+                <div class="flex items-center space-x-3">
+                    <!-- This Flask command will find your logo in the /static/ folder -->
+                    <img src="bughawk_logo.jpg" alt="BugHawk Logo" class="h-10 mx-auto rounded-full">
+                    <h1 class="text-2xl font-bold text-white">BugHawk</h1>
+                </div>
+                
+                <!-- NEW: Updated Nav Links -->
+                <nav class="hidden md:flex items-center space-x-8">
+                    <a href="{{ url_for('index') }}" class="text-sm font-medium text-[#64FFDA] transition-colors">Home</a>
+                    <a href="/#analysis-section" class="text-sm text-gray-300 hover:text-[#64FFDA] transition-colors">Analyze Repo</a>
+                    <a href="{{ url_for('chat') }}" class="text-sm text-gray-300 hover:text-[#64FFDA] transition-colors">AI Insights</a>
+                    <a href="{{ url_for('about') }}" class="text-sm text-gray-300 hover:text-[#64FFDA] transition-colors">About</a>
+                    <a href="{{ url_for('contact') }}" class="text-sm text-gray-300 hover:text-[#64FFDA] transition-colors">Contact</a>
+                </nav>
+                
+                <!-- NEW: Updated "Launch App" Button -->
+                <a href="{{ url_for('dashboard') }}"
+                    class="hidden md:block bg-transparent border border-[#64FFDA] text-[#64FFDA] px-4 py-2 rounded-md text-sm font-medium hover:bg-[#64FFDA] hover:text-[#0A192F] transition-all">
+                    Launch App
+                </a>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-grow flex items-center px-4 sm:px-6 lg:px-8">
+            <div class="container mx-auto max-w-4xl text-center py-20" id="analysis-section">
+                
+                <!-- NEW: Added Animation Classes -->
+                <h1 class="text-4xl sm:text-5xl md:text-6xl font-extrabold text-white leading-tight fade-in-down">
+                    Your AI Copilot for the <span class="brand-gradient">Entire SDLC</span>
+                </h1>
+                <p class="mt-6 max-w-2xl mx-auto text-lg text-gray-400 fade-in-down-delay">
+                    BugHawk goes beyond simple bug detection. We analyze your code for security flaws, predict future
+                    risks, and generate documentation—all in one place. Ship flawless code, faster.
+                </p>
+
+                <div class="mt-12 max-w-2xl mx-auto">
+                    <div class="relative glass-effect rounded-lg p-2 shadow-lg">
+                        <form id="repo-form" class="flex flex-col sm:flex-row items-center gap-2">
+                            <div class="flex-grow w-full flex items-center pl-4">
+                                <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                                    xmlns="http://www.w3.org/2000/svg">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                <input id="repo-url" type="text" placeholder="Paste your public Git repository URL..."
+                                    class="w-full bg-transparent text-white placeholder-gray-500 focus:outline-none pl-3 py-3">
+                            </div>
+                            <button type="submit" id="analyze-button"
+                                class="w-full sm:w-auto btn-primary font-bold px-8 py-3 rounded-md text-base whitespace-nowrap">
+                                Analyze Now
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- NEW: Suggestion 1 - Demo Mode Button -->
+                    <div class="mt-4 text-center">
+                        <button type="button" 
+                          id="demo-button"
+                          class="text-sm text-[#64FFDA] hover:underline">
+                          Try with Example Repo
+                        </button>
+                    </div>
+
+                    <!-- NEW: Suggestion 2 - Progress Bar Container -->
+                    <div id="message-box" class="mt-4 text-sm text-center h-8 flex items-center justify-center">
+                         <div id="progress-bar-container" class="progress-bar-container hidden w-full max-w-md mx-auto">
+                            <div id="progress-bar-inner" class="progress-bar-inner"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Features Section (Unchanged) -->
+                <div class="mt-20 grid grid-cols-1 md:grid-cols-3 gap-8 text-left">
+                    <div class="glass-effect p-6 rounded-lg">
+                        <div class="flex items-center space-x-4">
+                            <div class="bg-[#112240] p-3 rounded-md">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-[#64FFDA]" fill="none"
+                                    viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                </svg>
+                            </div>
+                            <h3 class="text-lg font-semibold text-white">Enhanced Security</h3>
+                        </div>
+                        <p class="mt-4 text-sm text-gray-400">Detect critical vulnerabilities like SQL Injection and XSS
+                            before they reach production.</p>
+                    </div>
+                    <div class="glass-effect p-6 rounded-lg">
+                        <div class="flex items-center space-x-4">
+                            <div class="bg-[#112240] p-3 rounded-md">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-[#64FFDA]" fill="none"
+                                    viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                </svg>
+                            </div>
+                            <h3 class="text-lg font-semibold text-white">Predictive Analysis</h3>
+                        </div>
+                        <p class="mt-4 text-sm text-gray-400">Our AI analyzes commit history to highlight future bug
+                            hotspots and risky dependencies.</p>
+                    </div>
+                    <div class="glass-effect p-6 rounded-lg">
+                        <div class="flex items-center space-x-4">
+                            <div class="bg-[#112240] p-3 rounded-md">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-[#64FFDA]" fill="none"
+                                    viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                            </div>
+                            <h3 class="text-lg font-semibold text-white">Auto-Documentation</h3>
+                        </div>
+                        <p class="mt-4 text-sm text-gray-400">Generate clear, human-readable documentation and code
+                            summaries automatically.</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Tech Stack Section -->
+        <section class="py-16 text-center">
+            <h2 class="text-2xl font-semibold text-white mb-8">Powered By</h2>
+            <div class="flex justify-center items-center space-x-8 opacity-80">
+                
+                <img src="{{ url_for('static', filename='icons/python.png') }}?v=2" class="h-10" alt="Python" title="Python">
+                <img src="{{ url_for('static', filename='icons/flask.png') }}?v=2" class="h-10" alt="Flask" title="Flask">
+                <img src="{{ url_for('static', filename='icons/tailwind.png') }}?v=2" class="h-10" alt="Tailwind CSS" title="Tailwind CSS">
+                <img src="{{ url_for('static', filename='icons/ai_engine.webp') }}?v=2" class="h-10" alt="AI Engine" title="Generative AI">
+
+            </div>
+        </section>
+
+
+        <!-- Footer -->
+        <footer class="py-6 px-4 sm:px-6 lg:px-8">
+            <div class="container mx-auto max-w-7xl text-center text-sm text-gray-500">
+                <p>&copy; 2025 BugHawk by Group SY-F-18. All rights reserved.</p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Tostify JS for Suggestion 3 -->
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+
+    <script>
+        // --- Particle Animation Script ---
+        const canvas = document.getElementById('particle-canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        let particlesArray;
+        const mouse = { x: null, y: null, radius: (canvas.height / 100) * (canvas.width / 100) }
+        window.addEventListener('mousemove', (event) => { mouse.x = event.x; mouse.y = event.y; });
+        class Particle {
+            constructor(x, y, directionX, directionY, size, color) {
+                this.x = x; this.y = y; this.directionX = directionX; this.directionY = directionY; this.size = size; this.color = color;
+            }
+            draw() {
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2, false); ctx.fillStyle = this.color; ctx.fill();
+            }
+            update() {
+                if (this.x > canvas.width || this.x < 0) { this.directionX = -this.directionX; }
+                if (this.y > canvas.height || this.y < 0) { this.directionY = -this.directionY; }
+                this.x += this.directionX; this.y += this.directionY; this.draw();
+            }
+        }
+        function init() {
+            particlesArray = [];
+            let numberOfParticles = (canvas.height * canvas.width) / 9000;
+            for (let i = 0; i < numberOfParticles; i++) {
+                let size = (Math.random() * 2) + 1;
+                let x = (Math.random() * ((innerWidth - size * 2) - (size * 2)) + size * 2);
+                let y = (Math.random() * ((innerHeight - size * 2) - (size * 2)) + size * 2);
+                let directionX = (Math.random() * .4) - .2;
+                let directionY = (Math.random() * .4) - .2;
+                let color = '#304C6B';
+                particlesArray.push(new Particle(x, y, directionX, directionY, size, color));
+            }
+        }
+        function connect() {
+            let opacityValue = 1;
+            for (let a = 0; a < particlesArray.length; a++) {
+                for (let b = a; b < particlesArray.length; b++) {
+                    let distance = ((particlesArray[a].x - particlesArray[b].x) * (particlesArray[a].x - particlesArray[b].x)) +
+                        ((particlesArray[a].y - particlesArray[b].y) * (particlesArray[a].y - particlesArray[b].y));
+                    if (distance < (canvas.width / 7) * (canvas.height / 7)) {
+                        opacityValue = 1 - (distance / 20000);
+                        ctx.strokeStyle = `rgba(100, 255, 218, ${opacityValue})`;
+                        ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(particlesArray[a].x, particlesArray[a].y); ctx.lineTo(particlesArray[b].x, particlesArray[b].y); ctx.stroke();
+                    }
+                }
+            }
+        }
+        function animate() {
+            requestAnimationFrame(animate); ctx.clearRect(0, 0, innerWidth, innerHeight);
+            for (let i = 0; i < particlesArray.length; i++) { particlesArray[i].update(); }
+            connect();
+        }
+        window.addEventListener('resize', () => {
+            canvas.width = innerWidth; canvas.height = innerHeight;
+            mouse.radius = (canvas.height / 100) * (canvas.width / 100); init();
+        });
+        window.addEventListener('mouseout', () => { mouse.x = undefined; mouse.y = undefined; });
+        init();
+        animate();
+
+        
+        // --- Form Submission Logic ---
+        const form = document.getElementById('repo-form');
+        const repoUrlInput = document.getElementById('repo-url');
+        const analyzeButton = document.getElementById('analyze-button');
+        const demoButton = document.getElementById('demo-button');
+        
+        const progressBarContainer = document.getElementById('progress-bar-container');
+        const progressBarInner = document.getElementById('progress-bar-inner');
+
+        function showToast(text, type = 'error') {
+            const backgroundColor = type === 'success' 
+                ? "linear-gradient(to right, #00b09b, #96c93d)" 
+                : "linear-gradient(to right, #ff5f6d, #ffc371)";
+            
+            Toastify({
+                text: text,
+                duration: 3000,
+                close: true,
+                gravity: "top", 
+                position: "right", 
+                stopOnFocus: true, 
+                style: {
+                    background: backgroundColor,
+                    borderRadius: "8px"
+                },
+            }).showToast();
+        }
+
+        demoButton.addEventListener('click', function() {
+            repoUrlInput.value = 'https://github.com/psf/requests';
+            form.dispatchEvent(new Event('submit'));
+        });
+
+        form.addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const url = repoUrlInput.value.trim();
+            let progressInterval;
+
+            if (!url) {
+                showToast('Please enter a repository URL.');
+                return;
+            }
+
+            const gitRegex = /^(https?:\/\/)?(www\.)?(github\.com|gitlab\.com)\/.+\/.+/;
+            if (!gitRegex.test(url)) {
+                showToast('Please enter a valid GitHub or GitLab repository URL.');
+                return;
+            }
+
+            analyzeButton.disabled = true;
+            analyzeButton.innerHTML = `
+                <svg class="animate-spin h-5 w-5 mr-3 inline-block" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Analyzing...`;
+            
+            progressBarContainer.classList.remove('hidden');
+            let progress = 0;
+            progressBarInner.style.width = '0%';
+            progressInterval = setInterval(() => {
+                progress += Math.random() * 10;
+                if (progress > 95) progress = 95; 
+                progressBarInner.style.width = progress + '%';
+            }, 400); 
+
+            try {
+                const response = await fetch('/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: url }),
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                clearInterval(progressInterval);
+                progressBarInner.style.width = '100%';
+                
+                if (data.redirect_url) {
+                    showToast('Analysis complete! Redirecting...', 'success');
+                    setTimeout(() => {
+                        progressBarContainer.classList.add('hidden');
+                        window.location.href = data.redirect_url;
+                    }, 800);
+                } else { 
+                    throw new Error('No redirect URL received from server.'); 
+                }
+
+            } catch (error) {
+                console.error('Analysis failed:', error);
+                // The new unauthorized_handler in app.py will send this error message now
+                showToast(error.message || 'Analysis failed. Please try again.');
+                
+                clearInterval(progressInterval);
+                progressBarContainer.classList.add('hidden');
+                progressBarInner.style.width = '0%';
+                
+                analyzeButton.disabled = false;
+                analyzeButton.textContent = 'Analyze Now';
+            }
+        });
+    </script>
+</body>
+</html>
