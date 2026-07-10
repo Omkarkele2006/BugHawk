@@ -100,3 +100,68 @@ class BHAIFindingExplainer(FindingExplainer):
             key = f"{finding.scanner}::{finding.rule_id}::{finding.file}:{finding.line}"
             explanations[key] = self.explain_finding(finding)
         return explanations
+
+    def generate_executive_summary(self, project_name: str, findings: List[Finding], grade: str, status: str) -> str:
+        """Generates a structured executive summary from findings statistics using LLMs with a static fallback."""
+        total = len(findings)
+        sec_count = sum(1 for f in findings if f.category == "security")
+        bug_count = sum(1 for f in findings if f.category == "bugs")
+        smell_count = sum(1 for f in findings if f.category == "codeSmells")
+        perf_count = sum(1 for f in findings if f.category == "performance")
+        
+        prompt = (
+            f"You are BugHawk AI. Write a concise executive summary for a repository security and code scan.\n\n"
+            f"Scan Statistics:\n"
+            f"- Project Name: {project_name}\n"
+            f"- Overall Grade: {grade} (Status: {status})\n"
+            f"- Total Findings: {total}\n"
+            f"  * Security: {sec_count}\n"
+            f"  * Bugs: {bug_count}\n"
+            f"  * Code Smells: {smell_count}\n"
+            f"  * Performance: {perf_count}\n\n"
+            f"Write a professional summary suitable for a CTO or engineering lead. "
+            f"Summarize the findings, highlight major risks (e.g. security exposures or complexity), "
+            f"and propose immediate remediation steps. Limit the summary to exactly 4 sentences. Do not use bullet points or code blocks."
+        )
+
+        # 1. Try Gemini API
+        if self.gemini_api_key:
+            try:
+                gemini_url = (
+                    f"https://generativelanguage.googleapis.com/v1beta/models/"
+                    f"gemini-2.5-flash-preview-09-2025:generateContent?key={self.gemini_api_key}"
+                )
+                headers = {"Content-Type": "application/json"}
+                payload = {"contents": [{"parts": [{"text": prompt}]}]}
+                
+                response = requests.post(gemini_url, headers=headers, json=payload, timeout=5)
+                if response.status_code == 200:
+                    result = response.json()
+                    summary_text = result['candidates'][0]['content']['parts'][0]['text'].strip()
+                    if summary_text:
+                        return summary_text
+            except Exception as e:
+                print(f"[BHAIFindingExplainer] Executive summary Gemini call failed: {e}. Falling back.")
+
+        # 2. Try Local FastAPI
+        if os.environ.get("BUGHAWK_USE_LOCAL_BACKEND") == "True":
+            try:
+                headers = {"Content-Type": "application/json"}
+                payload = {"query": prompt, "max_tokens": 512}
+                response = requests.post(self.backend_url, headers=headers, json=payload, timeout=5)
+                if response.status_code == 200:
+                    result = response.json()
+                    summary_text = result.get("response", "").strip()
+                    if summary_text:
+                        return summary_text
+            except Exception as e:
+                print(f"[BHAIFindingExplainer] Executive summary local call failed: {e}. Falling back.")
+
+        # 3. Static fallback
+        rem_msg = "Immediate refactoring and updates are advised." if total > 0 else "No actions needed."
+        return (
+            f"The BugHawk AI engine completed an automated audit of the project '{project_name}'. "
+            f"A total of {total} findings were identified, comprising {sec_count} security issues, "
+            f"{bug_count} logic bugs, and {smell_count} code smells. This code quality corresponds "
+            f"to an overall grade rank of {grade} ({status}). {rem_msg}"
+        )

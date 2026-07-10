@@ -238,7 +238,8 @@ def analyze_route():
     try:
         print(f"Initiating deterministic repository scan for: {repo_url}")
         manager = ScanManager()
-        analysis_results = manager.run_analysis(repo_url)
+        report = manager.run_analysis(repo_url)
+        analysis_results = report.to_dict()
     except Exception as e:
         print(f"Deterministic scan failed: {e}. Falling back to mock analyzer.")
         analysis_results = analyze_repository(repo_url)

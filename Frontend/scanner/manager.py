@@ -10,6 +10,8 @@ from .bandit_scanner import BanditScanner
 from .ruff_scanner import RuffScanner
 from .radon_scanner import RadonScanner
 from .pip_audit_scanner import PipAuditScanner
+from .report import Report, FindingWithExplanation
+from ai.explainer import BHAIFindingExplainer
 
 class ScanManager:
     def __init__(self):
@@ -24,7 +26,6 @@ class ScanManager:
     def _clone_repository(self, repo_url: str, dest_path: str) -> bool:
         """Clones a Git repository to the target destination path using depth=1."""
         try:
-            # Enforce 15 seconds timeout on git clone operation
             subprocess.run(
                 ["git", "clone", "--depth", "1", repo_url, dest_path],
                 capture_output=True,
@@ -61,8 +62,8 @@ class ScanManager:
         except Exception as e:
             print(f"[ScanManager] Directory cleanup error for {path}: {e}")
 
-    def run_analysis(self, repo_url: str) -> Dict[str, Any]:
-        """Clones a repository, runs all scanners, aggregates findings, and cleans up files."""
+    def run_analysis(self, repo_url: str) -> Report:
+        """Clones a repository, runs all scanners, aggregates findings, and returns a structured Report."""
         # Setup temporary directories under Flask's ignored instance path
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         temp_root = os.path.join(base_dir, "instance", "temp")
@@ -100,29 +101,52 @@ class ScanManager:
             print(f"[ScanManager] Cleaning up directory {dest_path}")
             self._cleanup_repository(dest_path)
 
-        # Aggregate findings
-        return self._aggregate_findings(project_name, findings)
-
-    def _aggregate_findings(self, project_name: str, findings: List[Finding]) -> Dict[str, Any]:
-        """Normalizes and translates a list of findings to the dashboard dictionary schema."""
-        issue_counts = {"security": 0, "bugs": 0, "performance": 0, "codeSmells": 0}
+        # Build detailed findings with AI explanations
+        explainer = BHAIFindingExplainer()
+        findings_with_explanations: List[FindingWithExplanation] = []
         
-        # Priority issues: Select up to 3 highest-severity findings
-        priority_issues = []
+        for finding in findings:
+            try:
+                explanation = explainer.explain_finding(finding)
+            except Exception as e:
+                print(f"[ScanManager] Failed to explain finding {finding.rule_id}: {e}")
+                from ai.templates import get_fallback_explanation
+                explanation = get_fallback_explanation(finding.category, finding.rule_id, finding.title, finding.description)
+                
+            findings_with_explanations.append(FindingWithExplanation(
+                finding=finding,
+                explanation=explanation
+            ))
+
+        # Compile statistics and build the unified Report
+        return self._generate_report(project_name, repo_url, findings_with_explanations)
+
+    def _generate_report(self, project_name: str, repo_url: str, findings: List[FindingWithExplanation]) -> Report:
+        """Aggregates standard metrics, runs severity classification and constructs the final Report."""
+        issue_counts_by_category = {"security": 0, "bugs": 0, "performance": 0, "codeSmells": 0}
+        issue_counts_by_severity = {"CRITICAL": 0, "MAJOR": 0, "MINOR": 0, "INFO": 0}
         
         # Health score calculations
         score_value = 100.0
 
-        for finding in findings:
-            # Increment counts
-            cat = finding.category
-            if cat in issue_counts:
-                issue_counts[cat] += 1
+        for fe in findings:
+            f = fe.finding
+            
+            # Category counts
+            cat = f.category
+            if cat in issue_counts_by_category:
+                issue_counts_by_category[cat] += 1
             else:
-                issue_counts["codeSmells"] += 1  # Fallback
+                issue_counts_by_category["codeSmells"] += 1
+
+            # Severity counts
+            sev = f.severity.upper()
+            if sev in issue_counts_by_severity:
+                issue_counts_by_severity[sev] += 1
+            else:
+                issue_counts_by_severity["INFO"] += 1
 
             # Calculate health score deductions
-            sev = finding.severity.upper()
             if sev == "CRITICAL":
                 score_value -= 10
             elif sev == "MAJOR":
@@ -151,37 +175,52 @@ class ScanManager:
 
         status = "Good" if score_value > 65 else "Needs Improvement"
 
-        # Select priority issues
-        # Sort findings: CRITICAL first, then MAJOR, then MINOR
+        # Determine executed scanners
+        tools_executed = []
+        for scanner in self.scanners:
+            name = scanner.__class__.__name__
+            if name == "BanditScanner" and shutil.which("bandit"):
+                tools_executed.append("bandit")
+            elif name == "RuffScanner" and shutil.which("ruff"):
+                tools_executed.append("ruff")
+            elif name == "RadonScanner" and shutil.which("radon"):
+                tools_executed.append("radon")
+            elif name == "PipAuditScanner" and shutil.which("pip-audit"):
+                tools_executed.append("pip-audit")
+
+        # Sort prioritized findings (CRITICAL first, then MAJOR, then MINOR)
         severity_rank = {"CRITICAL": 0, "MAJOR": 1, "MINOR": 2, "INFO": 3}
-        sorted_findings = sorted(findings, key=lambda f: severity_rank.get(f.severity.upper(), 4))
-        
-        for f in sorted_findings:
-            if len(priority_issues) >= 3:
-                break
-            priority_issues.append({
-                "title": f.title,
-                "file": f.file,
-                "line": f.line,
-                "severity": f.severity
-            })
+        sorted_findings = sorted(findings, key=lambda fe: severity_rank.get(fe.finding.severity.upper(), 4))
+        prioritized_findings = sorted_findings[:3]
 
-        # Generate realistic trend charts mapping current counts
-        crit_count = sum(1 for f in findings if f.severity.upper() == "CRITICAL")
-        maj_count = sum(1 for f in findings if f.severity.upper() == "MAJOR")
-        bug_trend_data = {
-            'critical': [max(0, crit_count - 2), max(0, crit_count - 1), crit_count, crit_count, crit_count],
-            'major': [max(0, maj_count - 4), max(0, maj_count - 2), maj_count, maj_count, maj_count]
-        }
+        # Generate Executive Summary using BHAIFindingExplainer
+        explainer = BHAIFindingExplainer()
+        raw_findings_list = [fe.finding for fe in findings]
+        try:
+            executive_summary = explainer.generate_executive_summary(
+                project_name=project_name,
+                findings=raw_findings_list,
+                grade=grade,
+                status=status
+            )
+        except Exception as e:
+            print(f"[ScanManager] Failed to generate executive summary: {e}")
+            executive_summary = (
+                f"Static analysis of project '{project_name}' concluded with an overall rank score of {grade} ({status}). "
+                f"A total of {len(findings)} issues were detected by automated audit tools."
+            )
 
-        return {
-            "projectName": project_name,
-            "lastScanned": datetime.now(timezone.utc).isoformat(),
-            "healthScore": {
-                "grade": grade,
-                "status": status
-            },
-            "issueCounts": issue_counts,
-            "bugTrend": bug_trend_data,
-            "priorityIssues": priority_issues
-        }
+        return Report(
+            project_name=project_name,
+            repo_url=repo_url,
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            tools_executed=tools_executed,
+            issue_counts_by_severity=issue_counts_by_severity,
+            issue_counts_by_category=issue_counts_by_category,
+            health_score_grade=grade,
+            health_score_status=status,
+            health_score_numeric=score_value,
+            findings=findings,
+            prioritized_findings=prioritized_findings,
+            executive_summary=executive_summary
+        )
