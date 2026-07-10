@@ -101,24 +101,31 @@ class BHAIFindingExplainer(FindingExplainer):
             explanations[key] = self.explain_finding(finding)
         return explanations
 
-    def generate_executive_summary(self, project_name: str, findings: List[Finding], grade: str, status: str) -> str:
+    def generate_executive_summary(
+        self, project_name: str, findings: List[Finding], grade: str, status: str,
+        total_count: int, category_counts: Dict[str, int]
+    ) -> str:
         """Generates a structured executive summary from findings statistics using LLMs with a static fallback."""
-        total = len(findings)
-        sec_count = sum(1 for f in findings if f.category == "security")
-        bug_count = sum(1 for f in findings if f.category == "bugs")
-        smell_count = sum(1 for f in findings if f.category == "codeSmells")
-        perf_count = sum(1 for f in findings if f.category == "performance")
+        sec_count = category_counts.get("security", 0)
+        bug_count = category_counts.get("bugs", 0)
+        smell_count = category_counts.get("codeSmells", 0)
+        perf_count = category_counts.get("performance", 0)
+        
+        # Include top findings in prompt to keep the AI summary representative
+        key_findings_str = "\n".join([f"- {f.title} (Scanner: {f.scanner}, File: {f.file}:{f.line})" for f in findings[:5]])
         
         prompt = (
             f"You are BugHawk AI. Write a concise executive summary for a repository security and code scan.\n\n"
             f"Scan Statistics:\n"
             f"- Project Name: {project_name}\n"
             f"- Overall Grade: {grade} (Status: {status})\n"
-            f"- Total Findings: {total}\n"
+            f"- Total Findings: {total_count}\n"
             f"  * Security: {sec_count}\n"
             f"  * Bugs: {bug_count}\n"
             f"  * Code Smells: {smell_count}\n"
             f"  * Performance: {perf_count}\n\n"
+            f"Key Findings to note:\n"
+            f"{key_findings_str}\n\n"
             f"Write a professional summary suitable for a CTO or engineering lead. "
             f"Summarize the findings, highlight major risks (e.g. security exposures or complexity), "
             f"and propose immediate remediation steps. Limit the summary to exactly 4 sentences. Do not use bullet points or code blocks."
@@ -158,10 +165,10 @@ class BHAIFindingExplainer(FindingExplainer):
                 print(f"[BHAIFindingExplainer] Executive summary local call failed: {e}. Falling back.")
 
         # 3. Static fallback
-        rem_msg = "Immediate refactoring and updates are advised." if total > 0 else "No actions needed."
+        rem_msg = "Immediate refactoring and updates are advised." if total_count > 0 else "No actions needed."
         return (
             f"The BugHawk AI engine completed an automated audit of the project '{project_name}'. "
-            f"A total of {total} findings were identified, comprising {sec_count} security issues, "
+            f"A total of {total_count} findings were identified, comprising {sec_count} security issues, "
             f"{bug_count} logic bugs, and {smell_count} code smells. This code quality corresponds "
             f"to an overall grade rank of {grade} ({status}). {rem_msg}"
         )

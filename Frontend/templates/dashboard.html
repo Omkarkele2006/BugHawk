@@ -274,7 +274,7 @@
                 {% for issue in current_analysis.priorityIssues %}
                 <div class="flex items-start justify-between p-4 bg-[#112240] rounded-lg border border-[#304C6B] hover:border-[#64FFDA] transition-colors group">
                   <div>
-                    <p class="font-medium text-white group-hover:text-[#64FFDA] transition-colors">SQL Injection</p>
+                    <p class="font-medium text-white group-hover:text-[#64FFDA] transition-colors">{{ issue.title }}</p>
                     <p class="text-sm text-gray-400 mt-1 font-mono">
                         <i class="fa-regular fa-file-code mr-1"></i> {{ issue.file }}:{{ issue.line }}
                     </p>

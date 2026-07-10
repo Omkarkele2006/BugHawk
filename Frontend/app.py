@@ -261,7 +261,8 @@ def analyze_route():
             # Save individual JSON fields
             issue_counts=json.dumps(analysis_results.get('issueCounts', {})),
             priority_issues=json.dumps(analysis_results.get('priorityIssues', [])),
-            bug_trend=json.dumps(analysis_results.get('bugTrend', {}))
+            bug_trend=json.dumps(analysis_results.get('bugTrend', {})),
+            full_report_text=analysis_results.get('full_report_text', '')
         )
         db.session.add(new_analysis)
         db.session.commit()
