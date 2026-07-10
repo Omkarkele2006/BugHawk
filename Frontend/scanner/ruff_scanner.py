@@ -3,18 +3,16 @@ import subprocess
 import os
 import shutil
 from typing import List
-from .base import BaseScanner, Finding
+from .base import BaseScanner, Finding, map_severity
 
 class RuffScanner(BaseScanner):
     def scan(self, repo_path: str) -> List[Finding]:
         findings = []
         if not shutil.which("ruff"):
-            # Ruff is not installed locally; skip scan gracefully
             print("[RuffScanner] 'ruff' executable not found in PATH. Skipping.")
             return findings
 
         try:
-            # Run ruff check over target path, output to JSON format
             result = subprocess.run(
                 ["ruff", "check", "--format", "json", repo_path],
                 capture_output=True,
@@ -30,21 +28,30 @@ class RuffScanner(BaseScanner):
                 full_path = issue.get("filename", "")
                 rel_path = os.path.relpath(full_path, repo_path) if os.path.isabs(full_path) else full_path
                 
-                # Check code to determine type
                 code = issue.get("code", "")
                 is_bug = code.startswith("E9") or code.startswith("F") or "syntax" in issue.get("message", "").lower()
                 category = "bugs" if is_bug else "codeSmells"
                 
-                # Normalize severity
-                severity = "CRITICAL" if is_bug else "MINOR"
+                # Centralized severity mapping
+                raw_severity = "CRITICAL" if is_bug else "MINOR"
+                severity = map_severity(raw_severity)
+                
+                recommendation = (
+                    f"Refactor the code block violating lint rule '{code}'. "
+                    "Ensure correct syntax imports, clean variable usage, and standard formatting conventions."
+                )
                 
                 findings.append(Finding(
-                    title=issue.get("message", "Lint Issue"),
-                    description=f"Rule Code: {code}\nLocation: Col {issue.get('location', {}).get('column', 1)}",
-                    file_path=rel_path,
-                    line_number=int(issue.get("location", {}).get("row", 1)),
+                    scanner="ruff",
+                    category=category,
                     severity=severity,
-                    category=category
+                    file=rel_path,
+                    line=int(issue.get("location", {}).get("row", 1)),
+                    rule_id=code,
+                    title=issue.get("message", "Lint Warning"),
+                    description=f"Lint rule violation: {issue.get('message', '')}",
+                    recommendation=recommendation,
+                    confidence="HIGH"
                 ))
         except Exception as e:
             print(f"[RuffScanner] Scan encountered an error: {e}")

@@ -161,8 +161,8 @@ class ScanManager:
                 break
             priority_issues.append({
                 "title": f.title,
-                "file": f.file_path,
-                "line": f.line_number,
+                "file": f.file,
+                "line": f.line,
                 "severity": f.severity
             })
 

@@ -3,18 +3,16 @@ import subprocess
 import os
 import shutil
 from typing import List
-from .base import BaseScanner, Finding
+from .base import BaseScanner, Finding, map_severity
 
 class BanditScanner(BaseScanner):
     def scan(self, repo_path: str) -> List[Finding]:
         findings = []
         if not shutil.which("bandit"):
-            # Bandit is not installed locally; skip scan gracefully
             print("[BanditScanner] 'bandit' executable not found in PATH. Skipping.")
             return findings
 
         try:
-            # Run bandit recursively over target path, output to JSON
             result = subprocess.run(
                 ["bandit", "-r", repo_path, "-f", "json", "-q"],
                 capture_output=True,
@@ -22,7 +20,6 @@ class BanditScanner(BaseScanner):
                 check=False
             )
             
-            # Bandit exits with 1 if issues are found, which is fine since check=False
             if not result.stdout.strip():
                 return findings
                 
@@ -31,21 +28,26 @@ class BanditScanner(BaseScanner):
                 full_path = issue.get("filename", "")
                 rel_path = os.path.relpath(full_path, repo_path) if os.path.isabs(full_path) else full_path
                 
-                # Normalize severity
-                bandit_sev = issue.get("issue_severity", "LOW").upper()
-                severity = "CRITICAL" if bandit_sev == "HIGH" else ("MAJOR" if bandit_sev == "MEDIUM" else "MINOR")
+                raw_severity = issue.get("issue_severity", "LOW")
+                severity = map_severity(raw_severity)
+                
+                # Propose a standard security recommendation
+                recommendation = (
+                    "Avoid using insecure functions or importing vulnerable symbols. "
+                    "Ensure user inputs are parameterized, validated, and escaped appropriately."
+                )
                 
                 findings.append(Finding(
-                    title=issue.get("issue_text", "Security Issue"),
-                    description=(
-                        f"ID: {issue.get('test_id', 'N/A')}\n"
-                        f"Ref: {issue.get('test_link', 'N/A')}\n"
-                        f"Code:\n{issue.get('code', '')}"
-                    ),
-                    file_path=rel_path,
-                    line_number=int(issue.get("line_number", 1)),
+                    scanner="bandit",
+                    category="security",
                     severity=severity,
-                    category="security"
+                    file=rel_path,
+                    line=int(issue.get("line_number", 1)),
+                    rule_id=issue.get("test_id", "N/A"),
+                    title=issue.get("issue_text", "Security Vulnerability"),
+                    description=f"Vulnerability Details:\n{issue.get('code', '')}",
+                    recommendation=recommendation,
+                    confidence=issue.get("issue_confidence", "HIGH").upper()
                 ))
         except Exception as e:
             print(f"[BanditScanner] Scan encountered an error: {e}")
