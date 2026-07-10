@@ -162,57 +162,23 @@ class ScanManager:
 
     def _generate_report(self, project_name: str, repo_url: str, findings: List[FindingWithExplanation]) -> Report:
         """Aggregates standard metrics, runs severity classification and constructs the final Report."""
-        issue_counts_by_category = {"security": 0, "bugs": 0, "performance": 0, "codeSmells": 0}
-        issue_counts_by_severity = {"CRITICAL": 0, "MAJOR": 0, "MINOR": 0, "INFO": 0}
-        
-        # Health score calculations
-        score_value = 100.0
+        from .scoring import HealthScoreEngine
 
-        for fe in findings:
-            f = fe.finding
-            
-            # Category counts
+        # Extract raw findings list
+        raw_findings_list = [fe.finding for fe in findings]
+
+        # Calculate score and grade details via HealthScoreEngine
+        scoring_engine = HealthScoreEngine()
+        health_score = scoring_engine.calculate(raw_findings_list)
+
+        # Build category counts expected by UI (security, bugs, performance, codeSmells)
+        issue_counts_by_category = {"security": 0, "bugs": 0, "performance": 0, "codeSmells": 0}
+        for f in raw_findings_list:
             cat = f.category
             if cat in issue_counts_by_category:
                 issue_counts_by_category[cat] += 1
             else:
                 issue_counts_by_category["codeSmells"] += 1
-
-            # Severity counts
-            sev = f.severity.upper()
-            if sev in issue_counts_by_severity:
-                issue_counts_by_severity[sev] += 1
-            else:
-                issue_counts_by_severity["INFO"] += 1
-
-            # Calculate health score deductions
-            if sev == "CRITICAL":
-                score_value -= 10
-            elif sev == "MAJOR":
-                score_value -= 5
-            elif sev == "MINOR":
-                score_value -= 1
-            else:
-                score_value -= 0.5
-
-        # Lower bound health score
-        score_value = max(0.0, score_value)
-
-        # Grade mapping
-        if score_value > 90:
-            grade = "A+"
-        elif score_value > 80:
-            grade = "A"
-        elif score_value > 70:
-            grade = "B+"
-        elif score_value > 60:
-            grade = "B"
-        elif score_value > 50:
-            grade = "C"
-        else:
-            grade = "F"
-
-        status = "Good" if score_value > 65 else "Needs Improvement"
 
         # Determine executed scanners
         tools_executed = []
@@ -234,20 +200,28 @@ class ScanManager:
 
         # Generate Executive Summary using BHAIFindingExplainer
         explainer = BHAIFindingExplainer()
-        raw_findings_list = [fe.finding for fe in findings]
         try:
             executive_summary = explainer.generate_executive_summary(
                 project_name=project_name,
                 findings=raw_findings_list,
-                grade=grade,
-                status=status
+                grade=health_score.grade,
+                status=health_score.status
             )
         except Exception as e:
             print(f"[ScanManager] Failed to generate executive summary: {e}")
             executive_summary = (
-                f"Static analysis of project '{project_name}' concluded with an overall rank score of {grade} ({status}). "
+                f"Static analysis of project '{project_name}' concluded with an overall rank score of {health_score.grade} ({health_score.status}). "
                 f"A total of {len(findings)} issues were detected by automated audit tools."
             )
+
+        # Compile severity counts
+        issue_counts_by_severity = {"CRITICAL": 0, "MAJOR": 0, "MINOR": 0, "INFO": 0}
+        for f in raw_findings_list:
+            sev = f.severity.upper()
+            if sev in issue_counts_by_severity:
+                issue_counts_by_severity[sev] += 1
+            else:
+                issue_counts_by_severity["INFO"] += 1
 
         return Report(
             project_name=project_name,
@@ -256,9 +230,9 @@ class ScanManager:
             tools_executed=tools_executed,
             issue_counts_by_severity=issue_counts_by_severity,
             issue_counts_by_category=issue_counts_by_category,
-            health_score_grade=grade,
-            health_score_status=status,
-            health_score_numeric=score_value,
+            health_score_grade=health_score.grade,
+            health_score_status=health_score.status,
+            health_score_numeric=health_score.overall_score,
             findings=findings,
             prioritized_findings=prioritized_findings,
             executive_summary=executive_summary
