@@ -172,3 +172,4 @@ $RECYCLE.BIN/
 *.sqlite
 *.sqlite3
 bughawk.db
+Backend/dataset/*.csv
