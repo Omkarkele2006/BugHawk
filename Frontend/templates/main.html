@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Copilot - BugHawk</title>
+    <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='bughawk_logo.jpg') }}">
     
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -50,6 +51,24 @@
             border: 1px solid rgba(100, 255, 218, 0.1);
         }
         
+        /* AI Response Formatting & Spacing */
+        .ai-message h1 { font-size: 1.5rem; font-weight: 700; margin-top: 1.25rem; margin-bottom: 0.75rem; color: #64FFDA; border-b: 1px solid #304C6B; padding-bottom: 0.25rem; }
+        .ai-message h2 { font-size: 1.25rem; font-weight: 600; margin-top: 1.1rem; margin-bottom: 0.5rem; color: #CCD6F6; }
+        .ai-message h3 { font-size: 1.1rem; font-weight: 600; margin-top: 0.9rem; margin-bottom: 0.4rem; color: #CCD6F6; }
+        .ai-message p { margin-top: 0.5rem; margin-bottom: 0.75rem; line-height: 1.6; }
+        .ai-message ul { list-style-type: disc; padding-left: 1.5rem; margin-top: 0.5rem; margin-bottom: 0.75rem; }
+        .ai-message ol { list-style-type: decimal; padding-left: 1.5rem; margin-top: 0.5rem; margin-bottom: 0.75rem; }
+        .ai-message li { margin-bottom: 0.35rem; }
+        .ai-message blockquote { border-left: 4px solid #64FFDA; padding-left: 1rem; color: #8892B0; margin: 1rem 0; font-style: italic; }
+        .ai-message strong { color: #64FFDA; font-weight: 600; }
+        .ai-message em { font-style: italic; }
+        .ai-message table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.875rem; }
+        .ai-message th { background-color: #112240; color: #64FFDA; border: 1px solid #304C6B; padding: 0.5rem 0.75rem; text-align: left; }
+        .ai-message td { border: 1px solid #304C6B; padding: 0.5rem 0.75rem; }
+        .ai-message tr:nth-child(even) { background-color: rgba(17, 34, 64, 0.5); }
+        .ai-message code { font-family: 'Roboto Mono', monospace; font-size: 0.9em; background-color: #0A192F; padding: 0.15rem 0.3rem; border-radius: 0.25rem; color: #64FFDA; border: 1px solid rgba(100, 255, 218, 0.1); }
+        .ai-message pre code { background-color: transparent; padding: 0; color: inherit; border: none; }
+        
         /* --- Code Blocks & Copy Button --- */
         .ai-message pre { 
             background: #0d1117 !important; 
@@ -60,7 +79,6 @@
             position: relative; 
             border: 1px solid #304C6B;
         }
-        .ai-message code { font-family: 'Roboto Mono', monospace; font-size: 0.9em; }
 
         .copy-code-btn {
             position: absolute; top: 0.5rem; right: 0.5rem;
@@ -167,7 +185,7 @@
         </header>
 
         <!-- Chat Window (Enhanced Scrolling) -->
-        <div id="chat-window" class="flex-1 overflow-y-auto p-4 sm:p-6 pb-40 scroll-smooth">
+        <div id="chat-window" class="flex-grow overflow-y-auto p-4 sm:p-6 pb-6 scroll-smooth">
             <div id="welcome-container" class="max-w-4xl mx-auto mt-10 transition-opacity duration-500">
                 <div class="bg-[#112240] border border-[#304C6B] rounded-xl p-8 text-center shadow-2xl mb-8">
                     <div class="w-16 h-16 bg-[#0A192F] rounded-full flex items-center justify-center mx-auto mb-4 border border-[#64FFDA]">
@@ -214,7 +232,7 @@
         </div>
 
         <!-- Input Area (Fixed) -->
-        <div class="absolute bottom-0 left-0 right-0 p-4 z-30 glass-input">
+        <div class="relative p-4 z-30 glass-input">
             <div class="max-w-4xl mx-auto relative">
                 <form id="chat-form" class="relative">
                     <textarea id="user-prompt" rows="1" placeholder="Paste code or ask a question..."

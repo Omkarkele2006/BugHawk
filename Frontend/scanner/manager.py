@@ -250,16 +250,47 @@ class ScanManager:
         total_findings_count = len(findings)
         findings_to_explain = prioritized_raw_findings[:limit]
 
-        # 4. Generate AI explanations only for the prioritized subset
+        # Build category counts expected by UI using ALL findings
+        issue_counts_by_category = {"security": 0, "bugs": 0, "performance": 0, "codeSmells": 0}
+        for f in findings:
+            cat = f.category
+            if cat in issue_counts_by_category:
+                issue_counts_by_category[cat] += 1
+            else:
+                issue_counts_by_category["codeSmells"] += 1
+
+        from .scoring import HealthScoreEngine
+        scoring_engine = HealthScoreEngine()
+        health_score = scoring_engine.calculate(findings)
+
+        # Handle required scanner failures: prevent silent A+ grades
+        if tools_failed:
+            grade_val = "N/A"
+            status_val = "Partial Analysis"
+            score_val = 0.0
+        else:
+            grade_val = health_score.grade
+            status_val = health_score.status
+            score_val = health_score.overall_score
+
+        # 4. Generate AI explanations only for the prioritized subset in a single batch request
         job.progress = 90
         explainer = BHAIFindingExplainer()
-        findings_with_explanations: List[FindingWithExplanation] = []
         
+        batch_explanations, executive_summary = explainer.explain_findings_batch(
+            findings=findings_to_explain,
+            project_name=project_name,
+            grade=grade_val,
+            status=status_val,
+            total_count=total_findings_count,
+            category_counts=issue_counts_by_category
+        )
+        
+        findings_with_explanations: List[FindingWithExplanation] = []
         for finding in findings_to_explain:
-            try:
-                explanation = explainer.explain_finding(finding)
-            except Exception as e:
-                print(f"[ScanManager] Failed to explain finding {finding.rule_id}: {e}")
+            key = (finding.rule_id, finding.file)
+            explanation = batch_explanations.get(key)
+            if not explanation:
                 from ai.templates import get_fallback_explanation
                 explanation = get_fallback_explanation(finding.category, finding.rule_id, finding.title, finding.description)
                 
@@ -275,7 +306,12 @@ class ScanManager:
             all_findings=findings,
             findings_with_explanations=findings_with_explanations,
             tools_failed=tools_failed,
-            total_raw_count=total_findings_count
+            total_raw_count=total_findings_count,
+            grade_val=grade_val,
+            status_val=status_val,
+            score_val=score_val,
+            issue_counts_by_category=issue_counts_by_category,
+            executive_summary=executive_summary
         )
         
         job.report = report
@@ -289,24 +325,10 @@ class ScanManager:
     def _generate_report(
         self, project_name: str, repo_url: str, all_findings: List[Finding],
         findings_with_explanations: List[FindingWithExplanation], tools_failed: List[str],
-        total_raw_count: int
+        total_raw_count: int, grade_val: str, status_val: str, score_val: float,
+        issue_counts_by_category: Dict[str, int], executive_summary: str
     ) -> Report:
         """Aggregates standard metrics, runs severity classification and constructs the final Report."""
-        from .scoring import HealthScoreEngine
-
-        # Calculate score and grade details via HealthScoreEngine using ALL findings
-        scoring_engine = HealthScoreEngine()
-        health_score = scoring_engine.calculate(all_findings)
-
-        # Build category counts expected by UI using ALL findings
-        issue_counts_by_category = {"security": 0, "bugs": 0, "performance": 0, "codeSmells": 0}
-        for f in all_findings:
-            cat = f.category
-            if cat in issue_counts_by_category:
-                issue_counts_by_category[cat] += 1
-            else:
-                issue_counts_by_category["codeSmells"] += 1
-
         # Determine executed scanners
         tools_executed = []
         for scanner in self.scanners:
@@ -324,25 +346,6 @@ class ScanManager:
 
         # Priority issues (top 3) from the prioritized, explained subset
         prioritized_findings = findings_with_explanations[:3]
-
-        # Generate Executive Summary using BHAIFindingExplainer with only the prioritized subset and overall stats
-        explainer = BHAIFindingExplainer()
-        prioritized_raw_list = [fe.finding for fe in findings_with_explanations]
-        try:
-            executive_summary = explainer.generate_executive_summary(
-                project_name=project_name,
-                findings=prioritized_raw_list,
-                grade=health_score.grade,
-                status=health_score.status,
-                total_count=total_raw_count,
-                category_counts=issue_counts_by_category
-            )
-        except Exception as e:
-            print(f"[ScanManager] Failed to generate executive summary: {e}")
-            executive_summary = (
-                f"Static analysis of project '{project_name}' concluded with an overall rank score of {health_score.grade} ({health_score.status}). "
-                f"A total of {total_raw_count} issues were detected by automated audit tools."
-            )
 
         # Inject limits metadata warning to executive summary if findings exceed threshold
         limit = self.max_explained_findings
@@ -363,6 +366,19 @@ class ScanManager:
             else:
                 issue_counts_by_severity["INFO"] += 1
 
+        # Debug console output
+        print(f"\n[DEBUG ScanManager] --- Scanner Execution & Merging Details ---")
+        print(f"[DEBUG ScanManager] Project Name: {project_name}")
+        print(f"[DEBUG ScanManager] Scanners that failed: {tools_failed}")
+        print(f"[DEBUG ScanManager] Scanners that ran: {tools_executed}")
+        print(f"[DEBUG ScanManager] Total findings before deduplication: {total_raw_count}")
+        print(f"[DEBUG ScanManager] Merged findings count (deduplicated): {len(findings_with_explanations)}")
+        print(f"[DEBUG ScanManager] Computed Category Counts: {issue_counts_by_category}")
+        print(f"[DEBUG ScanManager] Computed Severity Counts: {issue_counts_by_severity}")
+        print(f"[DEBUG ScanManager] Final Grade: {grade_val}")
+        print(f"[DEBUG ScanManager] Final Status: {status_val}")
+        print(f"[DEBUG ScanManager] ---------------------------------------------\n")
+
         return Report(
             project_name=project_name,
             repo_url=repo_url,
@@ -370,9 +386,9 @@ class ScanManager:
             tools_executed=tools_executed,
             issue_counts_by_severity=issue_counts_by_severity,
             issue_counts_by_category=issue_counts_by_category,
-            health_score_grade=health_score.grade,
-            health_score_status=health_score.status,
-            health_score_numeric=health_score.overall_score,
+            health_score_grade=grade_val,
+            health_score_status=status_val,
+            health_score_numeric=score_val,
             findings=findings_with_explanations,
             prioritized_findings=prioritized_findings,
             executive_summary=executive_summary,

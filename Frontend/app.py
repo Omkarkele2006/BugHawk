@@ -219,7 +219,7 @@ def send_otp_email(user):
             )
             mail.send(msg)
         except Exception as e:
-            print(f"Error sending email: {e}")
+            app.logger.error(f"Failed to send OTP email to {user.email}: {e}")
 
 # --- Core Routes ---
 
@@ -311,8 +311,19 @@ def analyze_route():
             issue_counts=json.dumps(analysis_results.get('issueCounts', {})),
             priority_issues=json.dumps(analysis_results.get('priorityIssues', [])),
             bug_trend=json.dumps(analysis_results.get('bugTrend', {})),
-            full_report_text=analysis_results.get('full_report_text', '')
+            full_report_text=analysis_results.get('full_report_text', ''),
+            report_type='repository'
         )
+        
+        # Debug logging before database save
+        print(f"\n[DEBUG Database Save] --- Analysis Object Before Save ---")
+        print(f"[DEBUG Database Save] Project: {new_analysis.project_name}")
+        print(f"[DEBUG Database Save] Grade: {new_analysis.health_score_grade}")
+        print(f"[DEBUG Database Save] Status: {new_analysis.health_score_status}")
+        print(f"[DEBUG Database Save] Issue Counts JSON: {new_analysis.issue_counts}")
+        print(f"[DEBUG Database Save] Report Type: {new_analysis.report_type}")
+        print(f"[DEBUG Database Save] ------------------------------------\n")
+        
         db.session.add(new_analysis)
         db.session.commit()
     except Exception as e:
@@ -536,9 +547,16 @@ def profile():
         current_user.experience_level = request.form.get('experience')
         current_user.github_link = request.form.get('github')
         current_user.linkedin_link = request.form.get('linkedin')
+        previously_enabled = current_user.two_factor_enabled
         current_user.two_factor_enabled = '2fa_toggle' in request.form
         db.session.commit()
-        flash('Profile updated successfully!', 'success')
+        
+        if not previously_enabled and current_user.two_factor_enabled:
+            send_otp_email(current_user)
+            flash('Two-Factor Authentication enabled! A verification OTP has been sent to your email.', 'success')
+        else:
+            flash('Profile updated successfully!', 'success')
+            
         return redirect(url_for('profile'))
     return render_template('profile.html')
 
