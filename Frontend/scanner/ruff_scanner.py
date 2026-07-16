@@ -14,9 +14,22 @@ class RuffScanner(BaseScanner):
         if importlib.util.find_spec("ruff") is None:
             raise RuntimeError("Ruff package is not installed or available in the current Python environment.")
 
+        # Get styling check settings from the current user
+        select_rules = "E,F,W"  # pep8 (default)
+        try:
+            from flask_login import current_user
+            if current_user and current_user.is_authenticated:
+                style = current_user.settings_style
+                if style == "google":
+                    select_rules = "E,F,W,D,I"
+                elif style == "airbnb":
+                    select_rules = "E,F,W,PL,C90"
+        except Exception:
+            pass
+
         try:
             result = subprocess.run(
-                [sys.executable, "-m", "ruff", "check", "--format", "json", repo_path],
+                [sys.executable, "-m", "ruff", "check", "--select", select_rules, "--format", "json", repo_path],
                 capture_output=True,
                 text=True,
                 check=False

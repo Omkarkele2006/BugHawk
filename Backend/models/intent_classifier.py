@@ -1,49 +1,50 @@
 import torch
 import torch.nn as nn
-from transformers import AutoModelForSequenceClassification, AutoTokenizer,EarlyStoppingCallback
-
+from transformers import AutoModelForSequenceClassification, AutoTokenizer, EarlyStoppingCallback
 from transformers import Trainer, TrainingArguments
-from sklearn.metrics import accuracy_score,f1_score,classification_report
+from sklearn.metrics import accuracy_score, f1_score, classification_report
 from sklearn.utils.class_weight import compute_class_weight
 from torch.utils.data import Dataset
-from typing import Dict , Optional
-from datasets import load_dataset,ClassLabel
-
-
+from typing import Dict, Optional
 import os
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
-
-ds = load_dataset("Addyk24/code_threat_maintance")
-
+ds = None
 model_path = "distilbert/distilbert-base-uncased"
-
 fine_tuned_model_path = "Addyk24/ThreatScan"
-
-
 
 
 class IntentClassifier:
     def __init__(self):
         self.model_path = fine_tuned_model_path
-        self.tokenizer = AutoTokenizer.from_pretrained(model_path)
+        
+        # Load tokenizer from cache first
+        try:
+            self.tokenizer = AutoTokenizer.from_pretrained(model_path, local_files_only=True)
+        except Exception:
+            try:
+                self.tokenizer = AutoTokenizer.from_pretrained(model_path, local_files_only=False, timeout=15)
+            except Exception:
+                self.tokenizer = None
+                
         self.model = None
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.label_mapping = {
             "debug" : 0,
             "threat" : 1
         }
-
-        # Create reverse mapping (integer to string) for predictions
         self.id2label = {v: k for k, v in self.label_mapping.items()}
 
     def load_model(self, model_path = fine_tuned_model_path):
         """ Loading of Finetuned Model """
         path_to_use = model_path if model_path else self.model_path
 
-        self.model = AutoModelForSequenceClassification.from_pretrained(path_to_use)
+        try:
+            self.model = AutoModelForSequenceClassification.from_pretrained(path_to_use, local_files_only=True)
+        except Exception:
+            self.model = AutoModelForSequenceClassification.from_pretrained(path_to_use, local_files_only=False, timeout=15)
 
         self.model.to(self.device)
         self.model.eval()
@@ -58,40 +59,38 @@ class IntentClassifier:
             else:
                 raise ValueError("Dict input must contain 'problem' key")
         elif isinstance(text, list):
-            # Check if list of dicts or list of strings
-            if all(isinstance(t, dict) and "problem" in t for t in text):
-                texts = [t["problem"] for t in text]
-            elif all(isinstance(t, str) for t in text):
-                texts = text
-            else:
-                raise ValueError("List must contain all strings or all dicts with 'problem' key")
-        elif isinstance(text, str):
-            texts = [text]
+            texts = [t["problem"] if isinstance(t, dict) else t for t in text]
         else:
-            raise ValueError("Unsupported input type")
+            texts = [str(text)]
 
-        tokenized_text = self.tokenizer(
+        # Preprocess text (lowercase and strip whitespace)
+        texts = [t.lower().strip() for t in texts]
+
+        # Tokenize text
+        tokenized_input = self.tokenizer(
             texts,
-            truncation = True,
-            padding = True,
-            max_length = max_length,
-            return_tensors = "pt"
+            padding=True,
+            truncation=True,
+            max_length=max_length,
+            return_tensors="pt"
         )
-
-        return tokenized_text
+        return tokenized_input
     
-    def predict(self,text):
-        """ Predicting Value From Finetuned Model """
+    def predict(self, text: str) -> Dict:
+        """ Predict the intent of input text """
         if self.model is None:
-            raise ValueError("Model not loaded")
-        tokenized_text = self.process_text(text)
+            raise ValueError("Model not loaded. Call load_model() first.")
+        
+        # Tokenize text
+        tokenized_input = self.process_text(text)
+        tokenized_input = {k: v.to(self.device) for k, v in tokenized_input.items()}
 
-        device = next(self.model.parameters()).device
-        tokenized_text = {k: v.to(device) for k, v in tokenized_text.items()}
-
+        # Predict
         with torch.no_grad():
-            outputs = self.model(**tokenized_text)
-            predicted_value = torch.nn.functional.softmax(outputs.logits,dim=-1)
+            outputs = self.model(**tokenized_input)
+            logits = outputs.logits
+            # probability
+            predicted_value = torch.softmax(logits,dim=-1)
 
         prediction_class = torch.argmax(predicted_value,dim=-1).item()
         confidence = predicted_value[0][prediction_class].item()
@@ -103,9 +102,16 @@ class IntentClassifier:
     
 
 class IntentClassifierTrainer:
-    def __init__(self):
+    def __init__(self, dataset=None):
         self.classifier = IntentClassifier()
-        self.ds = ds
+        if dataset is None:
+            global ds
+            if ds is None:
+                from datasets import load_dataset
+                ds = load_dataset("Addyk24/code_threat_maintance")
+            self.ds = ds
+        else:
+            self.ds = dataset
         
     def encode_labels(self,datapoint):
         datapoint["labels"] = int(self.classifier.label_mapping[datapoint["label"]])
@@ -118,145 +124,84 @@ class IntentClassifierTrainer:
 
     def prepare_dataset(self):
         """ Prepare dataset for training proper label mapping """
-
-
-        # ds["data"]= ds["data"].map(self.normalize_data)
-        # ds_clean = ds["data"].map(self.encode_labels)
-
-        # ds_clean["data"]["label"] = ds_clean["data"]['label'].map(self.classifier.label_mapping)
-        # label_names = list(self.classifier.label_mapping.keys())
-
-        # ds_clean = ds_clean.cast_column(
-        #     "labels",
-        #     ClassLabel(names=label_names)
-        # )
-
-        dataset = ds.train_test_split(
-            test_size = 0.2,
-            stratify_by_column="labels",
-            seed=0
+        dataset = self.ds.train_test_split(
+            test_size=0.2,
+            random_state=42
         )
 
         train_ds = dataset["train"]
         test_ds = dataset["test"]
-        # print(ds_clean["train"].features)
         train_ds = train_ds.map(self.classifier.process_text,batched=True,remove_columns=["problem"])
         test_ds = test_ds.map(self.classifier.process_text,batched=True,remove_columns=["problem"])
         
-
+        train_ds.set_format(type="torch",columns=["input_ids","attention_mask","labels"])
+        test_ds.set_format(type="torch",columns=["input_ids","attention_mask","labels"])
 
         return train_ds,test_ds
-
-    def compute_metrics(self, eval_pred):
-
-        """Compute metrics for evaluation"""
-
-        predictions, labels = eval_pred
-        predictions = np.argmax(predictions, axis=1)
-        
-        accuracy = accuracy_score(labels, predictions)
-        f1 = f1_score(labels, predictions, average='weighted')
-        f1_macro = f1_score(labels,predictions,average="macro")
-        
-        # Print detailed classification report
-        print("\nClassification Report:")
-        print(classification_report(labels, predictions, target_names=list(self.classifier.id2label.values())))
-
-        # Return with proper eval_ prefix
-        return {
-            'eval_accuracy': accuracy,  
-            'eval_f1': f1,
-            'f1_macro': f1_macro       
-        }
-
+    
     def calculate_class_weights(self, train_ds):
-        """Calculate class weights for imbalanced dataset"""
+        """ Calculate class weights to handle class imbalance """
         labels = np.array(train_ds['labels'])
-        classes = np.unique(labels)
-        
         class_weights = compute_class_weight(
-            'balanced',
-            classes=classes,
+            class_weight="balanced",
+            classes=np.unique(labels),
             y=labels
         )
-        
-        print(f"Class distribution: {np.bincount(labels)}")
-        print(f"Class weights: {dict(zip(classes, class_weights))}")
-        
-        return torch.tensor(class_weights, dtype=torch.float32)
+        return torch.tensor(class_weights,dtype=torch.float)
+
     
-
-
     def train_model(self,train_ds,test_ds,output_dir="trained_models/intent_classifier"):
-        """ Model Training With Dataset """
-        
+        """ Training details """
 
+        # Calculate class weights
+        class_weights = self.calculate_class_weights(train_ds)
+        class_weights = class_weights.to(self.classifier.device)
 
-        model = AutoModelForSequenceClassification.from_pretrained(
-            self.classifier.model_path,
-            num_labels = len(self.classifier.label_mapping),
-            id2label = self.classifier.id2label,
-            label2id = self.classifier.label_mapping,
-            )
-        
-        # Reinitialize classifier head to avoid bad initialization
-        if hasattr(model, 'classifier'):
-            model.classifier.weight.data.normal_(mean=0.0, std=0.02)
-            model.classifier.bias.data.zero_()
-
-
+        # Custom Trainer class to support class weights in loss calculation
+        class CustomTrainer(Trainer):
+            def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
+                labels = inputs.get("labels")
+                # Forward pass
+                outputs = model(**inputs)
+                logits = outputs.get("logits")
+                # compute custom loss
+                loss_fct = nn.CrossEntropyLoss(weight=class_weights)
+                loss = loss_fct(logits.view(-1, self.model.config.num_labels), labels.view(-1))
+                return (loss, outputs) if return_outputs else loss
+            
+        # Training arguments
         training_args = TrainingArguments(
             output_dir=output_dir,
-            # EPOCHS AND LEARNINGS
             num_train_epochs=3,
+            per_device_train_batch_size=8,
+            per_device_eval_batch_size=8,
+            evaluation_strategy="epoch",
+            save_strategy="epoch",
             learning_rate=2e-5,
-            warmup_steps=1000,
             weight_decay=0.01,
-            # BATCH SIZES
-            per_device_train_batch_size=32,
-            per_device_eval_batch_size=64,
-            # EVALUATION STRATEGY
-            eval_strategy="steps",
-            eval_steps=1000,
-            save_strategy="steps",
-            save_steps=1000,
-            save_total_limit=3,              # Keep only best 3 checkpoints
-            # LOGGINGS
-            logging_dir=f"{output_dir}/logs",
-            logging_steps=100,
-            logging_first_step = True,
-
+            logging_dir="./logs",
+            logging_steps=10,
             load_best_model_at_end=True,
-            metric_for_best_model="f1",
-            greater_is_better=True,
-            report_to="none",  # Disable wandb
-            remove_unused_columns=True, # Memory optimization
-            push_to_hub=False,  
-
-            # PERFORMANCE OPTIMIZATIONS
-            dataloader_num_workers=4,        # Parallel data loading
-            dataloader_pin_memory=True,      # GPU optimization
-            fp16=True,           # Mixed precision for faster training
-            # REPRODUCIBILITY
-            seed=42,
-            data_seed=42,
+            metric_for_best_model="eval_loss",
+            greater_is_better=False,
+            push_to_hub=True,
+            hub_model_id="Addyk24/ThreatScan"
         )
 
-        trainer = Trainer(
-            model = model,
+        # Initialize trainer
+        trainer = CustomTrainer(
+            model=self.classifier.model,
             args=training_args,
             train_dataset=train_ds,
             eval_dataset=test_ds,
-            compute_metrics=self.compute_metrics,
-            callbacks=[EarlyStoppingCallback(early_stopping_patience=3)]
+            callbacks=[EarlyStoppingCallback(early_stopping_patience=1)]
         )
 
-
-        # Training
-        print("Starting training...")
+        # Train
+        print("🔄 Starting training...")
         trainer.train()
 
-        # Evaluate final model
+        # Evaluate
         print("\nFinal evaluation:")
         eval_results = trainer.evaluate()
         print(f"Final metrics: {eval_results}")
@@ -287,13 +232,16 @@ def model_prediction(data,model_dir = "trained_models/intent_classifier"):
             return None
         
     try:
-        classifier.tokenizer = AutoTokenizer.from_pretrained(model_dir)
+        classifier.tokenizer = AutoTokenizer.from_pretrained(model_dir, local_files_only=True)
     except Exception:
         print(" Tokenizer not found in fine-tuned folder. Using base model tokenizer.")
         try:
-            classifier.tokenizer = AutoTokenizer.from_pretrained(fine_tuned_model_path)
+            classifier.tokenizer = AutoTokenizer.from_pretrained(fine_tuned_model_path, local_files_only=True)
         except Exception:
-            classifier.tokenizer = AutoTokenizer.from_pretrained("distilbert/distilbert-base-uncased")
+            try:
+                classifier.tokenizer = AutoTokenizer.from_pretrained("distilbert/distilbert-base-uncased", local_files_only=True)
+            except Exception:
+                classifier.tokenizer = AutoTokenizer.from_pretrained("distilbert/distilbert-base-uncased", local_files_only=False, timeout=15)
     print(" Prediction on Wayyyy!")
 
     try:
@@ -302,24 +250,23 @@ def model_prediction(data,model_dir = "trained_models/intent_classifier"):
         return {
             "Problem_type": result['Problem_type'],
             "confidence": f"{result['confidence']:.3f}",
-            # "all_probabilities": result['all_probabilities']
         }
     except Exception as e:
         print(f" Error predicting for text: {data}")
 
     
-
 def train_intent_classifier(dataset, model_path="distilbert-base-uncased"):
     """
     Main function to train the intent classifier
     """
-    trainer = IntentClassifierTrainer(model_path)
-    train_ds, test_ds = trainer.prepare_dataset(dataset)
+    trainer = IntentClassifierTrainer(dataset)
+    train_ds, test_ds = trainer.prepare_dataset()
     
     # Train the model
     trained_model = trainer.train_model(train_ds, test_ds)
     
     return trained_model
+
 
 # Testing function to verify model works correctly
 def test_model_predictions(model_path, test_samples):
@@ -335,16 +282,8 @@ def test_model_predictions(model_path, test_samples):
         print("-" * 50)
 
 if __name__ == "__main__":
-    
     print(" Initializing Intent Classifier Trainer...")
-    
     try:
-        # trained_model = train_intent_classifier(ds)
-        # Train the model
-        # trainer = IntentClassifierTrainer()
-        # train_ds, test_ds = trainer.prepare_dataset()
-        # trained_model = trainer.train_model(train_ds, test_ds)
-        
         print("\n Training completed successfully!")
         
         single_text = """Title: SQL query fails after sanitize attempt. Body: I'm trying to fix a bug. Code: <code>q = "SELECT * FROM users WHERE id = '%s'" % user_input</code> I tried input: "'; DROP TABLE users; --" and now get HTTP 500. How to fix?
@@ -357,18 +296,7 @@ if __name__ == "__main__":
 
         # Test the trained model
         test_model_predictions("trained_models/intent_classifier", test_samples)
-        # model_prediction(single_text)
-
-
-        
     except Exception as e:
         print(f"Error during training: {e}")
         import traceback
         traceback.print_exc()
-
-            
-
-
-
-
-

@@ -10,6 +10,19 @@ import requests
 import json
 import urllib.parse 
 import uuid
+import time
+from urllib3.util import Retry
+from requests.adapters import HTTPAdapter
+
+# Create global persistent session for Gemini API requests
+gemini_session = requests.Session()
+retries = Retry(
+    total=2,
+    backoff_factor=1,
+    status_forcelist=[500, 502, 503, 504],
+    raise_on_status=False
+)
+gemini_session.mount("https://", HTTPAdapter(max_retries=retries))
 # Load Scanner Manager and Mock fallback
 from scanner import ScanManager, ScanJob
 
@@ -34,6 +47,7 @@ from datetime import datetime, timedelta, timezone
 # --- App Initialization ---
 load_dotenv()
 app = Flask(__name__, template_folder='templates', static_folder='static')
+GEMINI_MODEL_NAME = os.environ.get('GEMINI_MODEL', 'gemini-2.5-flash')
 
 # --- Configurations ---
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'bug-hawk-secret-key-change-this')
@@ -122,6 +136,15 @@ class User(db.Model, UserMixin):
     two_factor_enabled = db.Column(db.Boolean, default=False)
     
     analyses = db.relationship('Analysis', backref='owner', lazy=True, cascade="all, delete-orphan")
+    
+    # Settings Fields
+    settings_ai_mode = db.Column(db.String(20), default='balanced')
+    settings_strictness = db.Column(db.Integer, default=75)
+    settings_auto_fix = db.Column(db.Boolean, default=True)
+    settings_language = db.Column(db.String(20), default='python')
+    settings_style = db.Column(db.String(20), default='pep8')
+    settings_perf_mode = db.Column(db.Boolean, default=False)
+    settings_system_prompt = db.Column(db.Text, nullable=True, default='')
 
     def __repr__(self):
         return f"User('{self.email}')"
@@ -136,7 +159,33 @@ class Analysis(db.Model):
     issue_counts = db.Column(db.Text, default='{}')
     priority_issues = db.Column(db.Text, default='[]')
     bug_trend = db.Column(db.Text, default='{}')
-    full_report_text = db.Column(db.Text, nullable=True) 
+    full_report_text = db.Column(db.Text, nullable=True)
+    report_type = db.Column(db.String(20), default='repository') # 'repository' or 'chat'
+
+    @property
+    def normalized_issue_counts(self):
+        try:
+            data = json.loads(self.issue_counts) if self.issue_counts else {}
+        except Exception:
+            data = {}
+        
+        # Ensure every key exists
+        keys = ["bugs", "security", "performance", "codeSmells", "critical", "major", "minor", "info"]
+        for k in keys:
+            if k not in data:
+                data[k] = 0
+                
+        # If it's a legacy report and critical/major are 0, try to recover from bug_trend
+        if data.get("critical") == 0 and data.get("major") == 0:
+            try:
+                trends = json.loads(self.bug_trend) if self.bug_trend else {}
+                if "critical" in trends and trends["critical"]:
+                    data["critical"] = trends["critical"][-1]
+                if "major" in trends and trends["major"]:
+                    data["major"] = trends["major"][-1]
+            except Exception:
+                pass
+        return data
 
 class ContactMessage(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -181,8 +230,8 @@ def index():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    # Fetch user's history
-    all_analyses = Analysis.query.filter_by(user_id=current_user.id).order_by(Analysis.timestamp.desc()).all()
+    # Fetch user's history (only repository analysis scans)
+    all_analyses = Analysis.query.filter_by(user_id=current_user.id, report_type='repository').order_by(Analysis.timestamp.desc()).all()
     
     # Check for new results passed via URL (from analyze route)
     results_str = request.args.get('results')
@@ -214,7 +263,7 @@ def view_analysis(analysis_id):
     if not analysis or analysis.owner != current_user:
         abort(403)
     
-    all_analyses = Analysis.query.filter_by(user_id=current_user.id).order_by(Analysis.timestamp.desc()).all()
+    all_analyses = Analysis.query.filter_by(user_id=current_user.id, report_type='repository').order_by(Analysis.timestamp.desc()).all()
     
     # Reconstruct the data object for the template
     current_analysis_data = {
@@ -370,6 +419,14 @@ def login():
                 send_otp_email(user)
                 session['email_for_verification'] = user.email
                 return redirect(url_for('verify_otp'))
+            
+            # If 2FA is enabled, intercept login and request verification
+            if user.two_factor_enabled:
+                send_otp_email(user)
+                session['email_for_verification'] = user.email
+                flash('Two-Factor Authentication is enabled. An OTP has been sent to your email.', 'info')
+                return redirect(url_for('verify_otp'))
+
             login_user(user)
             flash('Login successful!', 'success')
             return redirect(request.args.get('next') or url_for('dashboard'))
@@ -489,7 +546,16 @@ def profile():
 @login_required
 def settings():
     if request.method == 'POST':
-        flash('Settings saved!', 'success')
+        current_user.settings_ai_mode = request.form.get('ai_mode', 'balanced')
+        current_user.settings_strictness = int(request.form.get('strictness', 75))
+        current_user.settings_auto_fix = 'auto_fix' in request.form
+        current_user.settings_language = request.form.get('language', 'python')
+        current_user.settings_style = request.form.get('style', 'pep8')
+        current_user.settings_perf_mode = 'perf_mode' in request.form
+        current_user.settings_system_prompt = request.form.get('system_prompt', '')
+        db.session.commit()
+        flash('Settings saved successfully!', 'success')
+        return redirect(url_for('settings'))
     return render_template('settings.html')
 
 @app.route('/change_password', methods=['POST'])
@@ -544,25 +610,141 @@ def about(): return render_template('about.html')
 @app.route('/api/chat', methods=['POST'])
 @login_required
 def api_chat():
+    t_start = time.perf_counter()
+    
+    # 1. Frontend request arrival & setup
     user_query = request.get_json().get('prompt')
-    if not user_query: return jsonify({'error': 'Prompt required'}), 400
+    if not user_query:
+        return jsonify({'error': 'Prompt required'}), 400
 
+    t_setup = time.perf_counter()
+    setup_time = (t_setup - t_start) * 1000  # in ms
+    
     API_KEY = os.environ.get('GEMINI_API_KEY')
     if not API_KEY:
-        # Fallback mock response if no key
+        t_total = (time.perf_counter() - t_start) * 1000
+        print(f"\n--- Chat Request Timings ---\n"
+              f"Request received ............ {setup_time:.1f} ms\n"
+              f"Build prompt ............... 0.0 ms\n"
+              f"Gemini request ............. 0.0 ms\n"
+              f"Parse response ............. 0.0 ms\n"
+              f"Save history ............... 0.0 ms\n"
+              f"Total ...................... {t_total:.1f} ms\n")
         return jsonify({'text': f"**BugHawk AI (Mock):** I received: `{user_query[:20]}...`. Configure API Key for real analysis."})
         
-    API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key={API_KEY}"
+    API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL_NAME}:generateContent?key={API_KEY}"
     payload = { "contents": [{"parts": [{"text": user_query}]}] }
     
+    t_prompt = time.perf_counter()
+    prompt_time = (t_prompt - t_setup) * 1000
+    
+    gemini_time = 0.0
+    parse_time = 0.0
+    
     try:
-        response = requests.post(API_URL, headers={'Content-Type': 'application/json'}, json=payload)
-        response.raise_for_status()
+        t_gemini_start = time.perf_counter()
+        
+        # Send request with connect timeout = 10s, read timeout = 60s
+        response = gemini_session.post(
+            API_URL,
+            headers={'Content-Type': 'application/json'},
+            json=payload,
+            timeout=(10, 60)
+        )
+        
+        t_gemini_end = time.perf_counter()
+        gemini_time = (t_gemini_end - t_gemini_start) * 1000
+        
+        # Handle non-200 responses gracefully
+        if response.status_code != 200:
+            try:
+                err_data = response.json().get('error', {})
+                status = err_data.get('status', '')
+                msg = err_data.get('message', '')
+            except Exception:
+                status = ''
+                msg = response.text
+                
+            if response.status_code == 400 and "API key not valid" in msg:
+                err_text = "⚠️ **BugHawk Copilot Configuration Error:** The provided Gemini API Key is invalid. Please update `GEMINI_API_KEY` in your environment settings."
+            elif response.status_code == 404:
+                err_text = f"⚠️ **BugHawk Copilot Model Error:** The model configuration '{GEMINI_MODEL_NAME}' is not found or unsupported. Please check your Gemini settings."
+            elif response.status_code == 429:
+                err_text = "⚠️ **BugHawk Copilot Quota Exceeded:** You have reached the API rate limit or quota. Please try again in a few minutes."
+            else:
+                err_text = f"⚠️ **BugHawk Copilot API Error:** The AI service returned an error ({response.status_code}): {msg or status}"
+                
+            t_total = (time.perf_counter() - t_start) * 1000
+            print(f"\n--- Chat Request Timings (Failed API) ---\n"
+                  f"Request received ............ {setup_time:.1f} ms\n"
+                  f"Build prompt ............... {prompt_time:.1f} ms\n"
+                  f"Gemini request ............. {gemini_time:.1f} ms\n"
+                  f"Parse response ............. 0.0 ms\n"
+                  f"Save history ............... 0.0 ms\n"
+                  f"Total ...................... {t_total:.1f} ms\n")
+            return jsonify({'text': err_text})
+            
+        t_parse_start = time.perf_counter()
         result = response.json()
         text = result.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', "No response.")
+        
+        t_parse_end = time.perf_counter()
+        parse_time = (t_parse_end - t_parse_start) * 1000
+        
+        t_total = (time.perf_counter() - t_start) * 1000
+        print(f"\n--- Chat Request Timings (Success) ---\n"
+              f"Request received ............ {setup_time:.1f} ms\n"
+              f"Build prompt ............... {prompt_time:.1f} ms\n"
+              f"Gemini request ............. {gemini_time:.1f} ms\n"
+              f"Parse response ............. {parse_time:.1f} ms\n"
+              f"Save history ............... 0.0 ms\n"
+              f"Total ...................... {t_total:.1f} ms\n")
+              
         return jsonify({'text': text})
+
+    except requests.exceptions.ConnectTimeout:
+        t_total = (time.perf_counter() - t_start) * 1000
+        err_msg = "⚠️ **BugHawk Copilot Connection Timeout Error:** Failed to establish connection to the Gemini API within 10 seconds. Check your network or proxies."
+        print(f"\n--- Chat Request Timings (Connect Timeout) ---\n"
+              f"Request received ............ {setup_time:.1f} ms\n"
+              f"Build prompt ............... {prompt_time:.1f} ms\n"
+              f"Gemini request (Connect) ... {t_total - setup_time - prompt_time:.1f} ms\n"
+              f"Parse response ............. 0.0 ms\n"
+              f"Save history ............... 0.0 ms\n"
+              f"Total ...................... {t_total:.1f} ms\n")
+        return jsonify({'text': err_msg})
+        
+    except requests.exceptions.ReadTimeout:
+        t_total = (time.perf_counter() - t_start) * 1000
+        err_msg = "⚠️ **BugHawk Copilot Read Timeout Error:** Connection succeeded, but waiting for response from the Gemini API timed out after 60 seconds."
+        print(f"\n--- Chat Request Timings (Read Timeout) ---\n"
+              f"Request received ............ {setup_time:.1f} ms\n"
+              f"Build prompt ............... {prompt_time:.1f} ms\n"
+              f"Gemini request (Read) ...... {t_total - setup_time - prompt_time:.1f} ms\n"
+              f"Parse response ............. 0.0 ms\n"
+              f"Save history ............... 0.0 ms\n"
+              f"Total ...................... {t_total:.1f} ms\n")
+        return jsonify({'text': err_msg})
+        
+    except requests.exceptions.SSLError as ssl_err:
+        t_total = (time.perf_counter() - t_start) * 1000
+        err_msg = f"⚠️ **BugHawk Copilot TLS/SSL Handshake Error:** Secure handshake with Gemini API failed: {ssl_err}"
+        return jsonify({'text': err_msg})
+        
+    except requests.exceptions.ConnectionError as conn_err:
+        t_total = (time.perf_counter() - t_start) * 1000
+        err_msg = f"⚠️ **BugHawk Copilot Connection Error:** Network connection/DNS lookup failed: {conn_err}"
+        return jsonify({'text': err_msg})
+        
+    except requests.exceptions.RequestException as re:
+        t_total = (time.perf_counter() - t_start) * 1000
+        err_msg = f"⚠️ **BugHawk Copilot Request Error:** Request failed: {re}"
+        return jsonify({'text': err_msg})
+        
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        t_total = (time.perf_counter() - t_start) * 1000
+        err_msg = f"⚠️ **BugHawk Copilot Unexpected Error:** An unexpected error occurred: {str(e)}"
+        return jsonify({'text': err_msg})
 
 @app.route('/api/chat/save_report', methods=['POST'])
 @login_required
@@ -572,9 +754,16 @@ def save_chat_report():
     new_report = Analysis(
         user_id=current_user.id,
         project_name=f"Chat Analysis {datetime.now().strftime('%H:%M')}",
-        health_score_grade='B',
-        issue_counts=json.dumps({"bugs":1, "security":0}),
-        full_report_text=full_text
+        health_score_grade='N/A',
+        health_score_status='Chat Conversation',
+        issue_counts=json.dumps({
+            "bugs": 0, "security": 0, "performance": 0, "codeSmells": 0,
+            "critical": 0, "major": 0, "minor": 0, "info": 0
+        }),
+        priority_issues='[]',
+        bug_trend='{}',
+        full_report_text=full_text,
+        report_type='chat'
     )
     db.session.add(new_report)
     db.session.commit()
@@ -583,7 +772,10 @@ def save_chat_report():
 # --- Settings API ---
 @app.route('/api/settings/clear_history', methods=['POST'])
 @login_required
-def clear_history_api(): return jsonify({'status': 'success'})
+def clear_history_api():
+    Analysis.query.filter_by(user_id=current_user.id).delete()
+    db.session.commit()
+    return jsonify({'status': 'success'})
 
 @app.route('/api/settings/reset_memory', methods=['POST'])
 @login_required
@@ -591,7 +783,16 @@ def reset_memory_api(): return jsonify({'status': 'success'})
 
 @app.route('/api/settings/restore_defaults', methods=['POST'])
 @login_required
-def restore_defaults_api(): return jsonify({'status': 'success'})
+def restore_defaults_api():
+    current_user.settings_ai_mode = 'balanced'
+    current_user.settings_strictness = 75
+    current_user.settings_auto_fix = True
+    current_user.settings_language = 'python'
+    current_user.settings_style = 'pep8'
+    current_user.settings_perf_mode = False
+    current_user.settings_system_prompt = ''
+    db.session.commit()
+    return jsonify({'status': 'success'})
 
 @app.route('/api/profile/logout_devices', methods=['POST'])
 @login_required
@@ -647,4 +848,32 @@ def authorize_github():
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
+        # Custom migration helper for user settings columns
+        try:
+            db.session.execute(db.text("SELECT settings_ai_mode FROM user LIMIT 1"))
+        except Exception:
+            try:
+                db.session.execute(db.text("ALTER TABLE user ADD COLUMN settings_ai_mode VARCHAR(20) DEFAULT 'balanced'"))
+                db.session.execute(db.text("ALTER TABLE user ADD COLUMN settings_strictness INTEGER DEFAULT 75"))
+                db.session.execute(db.text("ALTER TABLE user ADD COLUMN settings_auto_fix BOOLEAN DEFAULT 1"))
+                db.session.execute(db.text("ALTER TABLE user ADD COLUMN settings_language VARCHAR(20) DEFAULT 'python'"))
+                db.session.execute(db.text("ALTER TABLE user ADD COLUMN settings_style VARCHAR(20) DEFAULT 'pep8'"))
+                db.session.execute(db.text("ALTER TABLE user ADD COLUMN settings_perf_mode BOOLEAN DEFAULT 0"))
+                db.session.execute(db.text("ALTER TABLE user ADD COLUMN settings_system_prompt TEXT DEFAULT ''"))
+                db.session.commit()
+                print("Successfully migrated database schema for settings columns.")
+            except Exception as ex:
+                print(f"Error executing settings schema migration: {ex}")
+                db.session.rollback()
+        # Custom migration helper for analysis report_type column
+        try:
+            db.session.execute(db.text("SELECT report_type FROM analysis LIMIT 1"))
+        except Exception:
+            try:
+                db.session.execute(db.text("ALTER TABLE analysis ADD COLUMN report_type VARCHAR(20) DEFAULT 'repository'"))
+                db.session.commit()
+                print("Successfully migrated analysis table for report_type column.")
+            except Exception as ex:
+                print(f"Error executing analysis schema migration: {ex}")
+                db.session.rollback()
     app.run(debug=True, port=5000)

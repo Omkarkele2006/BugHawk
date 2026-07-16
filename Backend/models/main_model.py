@@ -36,8 +36,13 @@ class BugHawkModel:
 
         # Load processor
         try:
-            self.processor = AutoProcessor.from_pretrained(model_path)
-            logger.info("Processor loaded")
+            try:
+                self.processor = AutoProcessor.from_pretrained(model_path, local_files_only=True)
+                logger.info("Processor loaded from local cache.")
+            except Exception:
+                logger.info("Processor not found in local cache. Attempting download with timeout.")
+                self.processor = AutoProcessor.from_pretrained(model_path, local_files_only=False, timeout=15)
+                logger.info("Processor loaded.")
         except Exception as e:
             logger.warning(f"Could not load processor, using tokenizer: {e}")
             self.processor = self.tokenizer

@@ -5,6 +5,9 @@ from typing import List, Dict
 from .base import FindingExplainer, Explanation, Finding
 from .templates import get_fallback_explanation
 
+GEMINI_MODEL_NAME = os.environ.get('GEMINI_MODEL', 'gemini-2.5-flash')
+
+
 class BHAIFindingExplainer(FindingExplainer):
     def __init__(self):
         # Allow custom backend FastAPI url or read from environment
@@ -12,6 +15,19 @@ class BHAIFindingExplainer(FindingExplainer):
         self.gemini_api_key = os.environ.get("GEMINI_API_KEY")
 
     def explain_finding(self, finding: Finding) -> Explanation:
+        # Get settings from current logged-in user
+        auto_fix = True
+        system_prompt = ""
+        try:
+            from flask_login import current_user
+            if current_user and current_user.is_authenticated:
+                auto_fix = current_user.settings_auto_fix
+                system_prompt = current_user.settings_system_prompt
+        except Exception:
+            pass
+
+        fix_instruction = "provide a complete code replacement or patch demonstrating the secure coding fix." if auto_fix else "provide high-level explanation of the remediation steps in plain English without including code blocks or code patches."
+
         # Prompt construction asking for strict JSON structure
         prompt = (
             f"You are BugHawk AI. Analyze the following static code scan finding and explain it.\n\n"
@@ -23,11 +39,16 @@ class BHAIFindingExplainer(FindingExplainer):
             f"- File: {finding.file}:{finding.line}\n"
             f"- Issue Title: {finding.title}\n"
             f"- Issue Description: {finding.description}\n\n"
+        )
+        if system_prompt:
+            prompt += f"Custom System Instructions to follow:\n{system_prompt}\n\n"
+            
+        prompt += (
             f"Respond with a strict raw JSON object (and nothing else) containing the following string keys:\n"
             f"1. \"explanation\": a clear details summary explaining the issue\n"
             f"2. \"why_it_matters\": why this coding pattern is problematic\n"
             f"3. \"possible_impact\": what can go wrong if this is left in production\n"
-            f"4. \"recommended_fix\": how the developer should repair this block\n"
+            f"4. \"recommended_fix\": {fix_instruction}\n"
             f"5. \"developer_friendly_summary\": a single-sentence friendly overview\n"
         )
 
@@ -36,7 +57,7 @@ class BHAIFindingExplainer(FindingExplainer):
             try:
                 gemini_url = (
                     f"https://generativelanguage.googleapis.com/v1beta/models/"
-                    f"gemini-2.5-flash-preview-09-2025:generateContent?key={self.gemini_api_key}"
+                    f"{GEMINI_MODEL_NAME}:generateContent?key={self.gemini_api_key}"
                 )
                 headers = {"Content-Type": "application/json"}
                 payload = {
@@ -63,8 +84,6 @@ class BHAIFindingExplainer(FindingExplainer):
                 print(f"[BHAIFindingExplainer] Gemini API call failed: {e}. Falling back.")
 
         # 2. Try Local FastAPI backend if available
-        # Note: In the future, this is where we would redirect call to local Qwen coder model
-        # We can implement a probe/check or just try it if BUGHAWK_USE_LOCAL_BACKEND is configured
         if os.environ.get("BUGHAWK_USE_LOCAL_BACKEND") == "True":
             try:
                 headers = {"Content-Type": "application/json"}
@@ -111,6 +130,15 @@ class BHAIFindingExplainer(FindingExplainer):
         smell_count = category_counts.get("codeSmells", 0)
         perf_count = category_counts.get("performance", 0)
         
+        # Get settings from current logged-in user
+        system_prompt = ""
+        try:
+            from flask_login import current_user
+            if current_user and current_user.is_authenticated:
+                system_prompt = current_user.settings_system_prompt
+        except Exception:
+            pass
+
         # Include top findings in prompt to keep the AI summary representative
         key_findings_str = "\n".join([f"- {f.title} (Scanner: {f.scanner}, File: {f.file}:{f.line})" for f in findings[:5]])
         
@@ -126,6 +154,11 @@ class BHAIFindingExplainer(FindingExplainer):
             f"  * Performance: {perf_count}\n\n"
             f"Key Findings to note:\n"
             f"{key_findings_str}\n\n"
+        )
+        if system_prompt:
+            prompt += f"Custom System Instructions to follow:\n{system_prompt}\n\n"
+
+        prompt += (
             f"Write a professional summary suitable for a CTO or engineering lead. "
             f"Summarize the findings, highlight major risks (e.g. security exposures or complexity), "
             f"and propose immediate remediation steps. Limit the summary to exactly 4 sentences. Do not use bullet points or code blocks."
@@ -136,7 +169,7 @@ class BHAIFindingExplainer(FindingExplainer):
             try:
                 gemini_url = (
                     f"https://generativelanguage.googleapis.com/v1beta/models/"
-                    f"gemini-2.5-flash-preview-09-2025:generateContent?key={self.gemini_api_key}"
+                    f"{GEMINI_MODEL_NAME}:generateContent?key={self.gemini_api_key}"
                 )
                 headers = {"Content-Type": "application/json"}
                 payload = {"contents": [{"parts": [{"text": prompt}]}]}

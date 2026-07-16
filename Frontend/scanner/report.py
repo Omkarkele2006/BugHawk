@@ -37,7 +37,11 @@ class Report:
                 "security": self.issue_counts_by_category.get("security", 0),
                 "bugs": self.issue_counts_by_category.get("bugs", 0),
                 "performance": self.issue_counts_by_category.get("performance", 0),
-                "codeSmells": self.issue_counts_by_category.get("codeSmells", 0)
+                "codeSmells": self.issue_counts_by_category.get("codeSmells", 0),
+                "critical": self.issue_counts_by_severity.get("CRITICAL", 0),
+                "major": self.issue_counts_by_severity.get("MAJOR", 0),
+                "minor": self.issue_counts_by_severity.get("MINOR", 0),
+                "info": self.issue_counts_by_severity.get("INFO", 0)
             },
             "priorityIssues": [
                 {

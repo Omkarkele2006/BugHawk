@@ -90,6 +90,21 @@ class ScanManager:
                 created_at=datetime.now(timezone.utc).isoformat()
             )
 
+        # Retrieve user settings, fallback to defaults if not logged in
+        ai_mode, strictness, auto_fix, language, style, perf_mode, system_prompt = "balanced", 75, True, "python", "pep8", False, ""
+        try:
+            from flask_login import current_user
+            if current_user and current_user.is_authenticated:
+                ai_mode = current_user.settings_ai_mode
+                strictness = current_user.settings_strictness
+                auto_fix = current_user.settings_auto_fix
+                language = current_user.settings_language
+                style = current_user.settings_style
+                perf_mode = current_user.settings_perf_mode
+                system_prompt = current_user.settings_system_prompt
+        except Exception:
+            pass
+
         # Transition status to RUNNING
         job.status = "RUNNING"
         job.started_at = datetime.now(timezone.utc).isoformat()
@@ -133,6 +148,18 @@ class ScanManager:
                 elif scanner.__class__.__name__ == "PipAuditScanner":
                     tool_name = "pip-audit"
                 
+                # Language Option check:
+                # If primary language setting is not Python, we skip Python-specific tools (bandit, ruff, radon, pip-audit)
+                if language != "python":
+                    print(f"[ScanManager] Skipping {tool_name} because primary language is set to {language}.")
+                    continue
+
+                # Performance Option check:
+                # If performance checking is disabled, skip Radon complexity scanner
+                if tool_name == "radon" and not perf_mode:
+                    print("[ScanManager] Skipping RadonScanner because Performance Check is disabled.")
+                    continue
+
                 try:
                     scanner_findings = scanner.scan(dest_path)
                     print(f"[ScanManager] {scanner.__class__.__name__} found {len(scanner_findings)} issues.")
@@ -156,6 +183,20 @@ class ScanManager:
             print(f"[ScanManager] Cleaning up directory {dest_path}")
             self._cleanup_repository(dest_path)
 
+        # Strictness Option filter:
+        # Filter out findings based on severity threshold set by strictness
+        filtered_findings = []
+        for f in findings:
+            sev = f.severity.upper()
+            if strictness < 30 and sev != "CRITICAL":
+                continue
+            elif strictness < 60 and sev not in ["CRITICAL", "MAJOR"]:
+                continue
+            elif strictness < 90 and sev not in ["CRITICAL", "MAJOR", "MINOR"]:
+                continue
+            filtered_findings.append(f)
+        findings = filtered_findings
+
         # Performance Optimization:
         # 1. Deduplicate findings using (scanner, rule_id, file), keeping the earliest occurrence (by line number)
         sorted_by_line = sorted(findings, key=lambda f: f.line)
@@ -171,13 +212,38 @@ class ScanManager:
         severity_rank = {"CRITICAL": 0, "MAJOR": 1, "MINOR": 2, "INFO": 3}
         confidence_rank = {"HIGH": 0, "MEDIUM": 1, "LOW": 2}
         
-        prioritized_raw_findings = sorted(
-            deduped_findings,
-            key=lambda f: (
-                severity_rank.get(f.severity.upper(), 4),
-                confidence_rank.get(f.confidence.upper(), 3)
+        # AI Mode option prioritization changes:
+        if ai_mode == "strict":
+            # strict: prioritize security vulnerabilities first
+            category_rank = {"security": 0, "bugs": 1, "performance": 2, "codeSmells": 3}
+            prioritized_raw_findings = sorted(
+                deduped_findings,
+                key=lambda f: (
+                    category_rank.get(f.category, 4),
+                    severity_rank.get(f.severity.upper(), 4),
+                    confidence_rank.get(f.confidence.upper(), 3)
+                )
             )
-        )
+        elif ai_mode == "teacher":
+            # teacher: prioritize codeSmells and bugs first
+            category_rank = {"codeSmells": 0, "bugs": 1, "performance": 2, "security": 3}
+            prioritized_raw_findings = sorted(
+                deduped_findings,
+                key=lambda f: (
+                    category_rank.get(f.category, 4),
+                    severity_rank.get(f.severity.upper(), 4),
+                    confidence_rank.get(f.confidence.upper(), 3)
+                )
+            )
+        else:
+            # balanced: severity, then confidence
+            prioritized_raw_findings = sorted(
+                deduped_findings,
+                key=lambda f: (
+                    severity_rank.get(f.severity.upper(), 4),
+                    confidence_rank.get(f.confidence.upper(), 3)
+                )
+            )
 
         # 3. Limit findings for detailed AI explanations
         limit = self.max_explained_findings
@@ -218,6 +284,7 @@ class ScanManager:
         job.progress = 100
 
         return report
+
 
     def _generate_report(
         self, project_name: str, repo_url: str, all_findings: List[Finding],
