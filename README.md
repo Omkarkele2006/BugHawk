@@ -1,75 +1,170 @@
-# BugHawk - AI-Powered Code Analysis & Copilot Suite
+# BugHawk
 
-BugHawk is an intelligent application designed to streamline the Software Development Life Cycle (SDLC) by providing interactive AI-assisted code reviews, security vulnerability checks, performance bottleneck audits, and automated docstrings generation.
+An AI-powered static code analysis platform that combines security scanners (Bandit, Ruff, Radon, pip-audit) with Google Gemini-generated explanations, an interactive AI Copilot, and downloadable PDF reports — all in a single Flask web application.
 
-> [!IMPORTANT]
-> **Prototype Phase Notice:** 
-> BugHawk is currently in a prototype phase. The interactive AI Copilot chat leverages the external Gemini API, while the repository scan metrics in the dashboard are currently simulated using high-fidelity mock data. The local Machine Learning server (in `Backend/`) runs separately and is not yet integrated into the runtime request pipeline of the web frontend.
+[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
+[![Flask](https://img.shields.io/badge/Flask-3.x-000000?style=flat-square&logo=flask&logoColor=white)](https://flask.palletsprojects.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
+
+---
+
+## Key Features
+
+- Scan any public GitHub repository and receive a graded health report (A+ to F)
+- Security vulnerability detection via Bandit with CVE-level detail
+- Linting and code quality analysis via Ruff
+- Cyclomatic complexity scoring via Radon
+- Dependency CVE scanning via pip-audit
+- AI-generated explanations for every finding, batched into a single Gemini API call
+- Conversational AI Copilot with full Markdown rendering and code highlighting
+- One-click PDF report generation with executive summary
+- GitHub OAuth login, email OTP verification, and Two-Factor Authentication
+- Full scan history with per-report drill-down
+
+---
+
+## Tech Stack
+
+| Layer | Technologies |
+|---|---|
+| Web Framework | Flask, SQLAlchemy, SQLite |
+| ML Backend | FastAPI, Hugging Face Transformers, DistilBERT, Qwen2.5-Coder |
+| Security Scanners | Bandit, Ruff, Radon, pip-audit |
+| AI Services | Google Gemini 2.5 Flash |
+| Auth | Flask-Login, Flask-Mail, Authlib (GitHub OAuth) |
+
+---
+
+## Architecture
+
+```
+Browser
+  └── Flask Frontend
+        └── ScanManager
+              ├── Bandit  ──┐
+              ├── Ruff    ──┤── Merged findings
+              ├── Radon   ──┤      └── Gemini (single batch request)
+              └── pip-audit─┘            └── Dashboard / PDF Report
+
+AI Copilot ──── FastAPI ML Backend (DistilBERT + Qwen2.5-Coder)
+                       └── Google Gemini (response generation)
+```
+
+---
+
+## Screenshots
+
+| Login | Dashboard |
+|---|---|
+| ![Login](docs/screenshots/login.png) | ![Dashboard](docs/screenshots/dashboard.png) |
+
+| AI Copilot | Repository Report |
+|---|---|
+| ![Copilot](docs/screenshots/copilot.png) | ![Report](docs/screenshots/report.png) |
+
+---
+
+## Installation
+
+**Prerequisites:** Python 3.11+, Git
+
+```bash
+git clone https://github.com/your-org/bughawk.git
+cd bughawk
+```
+
+**Frontend**
+```bash
+cd Frontend
+python -m venv venv && venv\Scripts\activate   # Windows
+# source venv/bin/activate                     # macOS / Linux
+pip install -r requirements.txt
+```
+
+**Backend**
+```bash
+cd Backend
+python -m venv .venv && .venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+---
+
+## Environment Variables
+
+Create `Frontend/.env`:
+
+| Variable | Description |
+|---|---|
+| `SECRET_KEY` | Flask session secret (generate with `secrets.token_hex(32)`) |
+| `GEMINI_API_KEY` | Google AI Studio API key |
+| `MAIL_USERNAME` | Gmail address for OTP emails |
+| `MAIL_PASSWORD` | Gmail App Password |
+| `GITHUB_CLIENT_ID` | GitHub OAuth App client ID |
+| `GITHUB_CLIENT_SECRET` | GitHub OAuth App client secret |
+
+Create `Backend/.env`:
+
+| Variable | Description |
+|---|---|
+| `token_hf` | Hugging Face API token |
+
+---
+
+## Running
+
+```bash
+# Frontend  →  http://127.0.0.1:5000
+cd Frontend && python app.py
+
+# Backend   →  http://127.0.0.1:8000
+cd Backend && python main.py
+```
+
+The backend is only required for AI Copilot intent classification. All scanner and Gemini functionality runs through the frontend independently.
 
 ---
 
 ## Project Structure
 
-The project is structured into two main service containers:
-
-* **[Frontend/](file:///c:/IMP/VIT/SY/SEM_1/EDI/EDI%20-%20BUGHAWK/Frontend/)**: The user-facing Flask web application. It handles local user authentication, GitHub OAuth, SMTP-based email OTP verification, the dashboard statistics, scan history databases, and the chat copilot UI.
-* **[Backend/](file:///c:/IMP/VIT/SY/SEM_1/EDI/EDI%20-%20BUGHAWK/Backend/)**: The FastAPI-powered machine learning inference API. It hosts the coder model (`Qwen2.5-Coder-1.5B-Instruct`), manages model weights caching, runs DistilBERT sequence classifications, and stubs reinforcement learning feedback mechanisms.
-* **[docs/](file:///c:/IMP/VIT/SY/SEM_1/EDI/EDI%20-%20BUGHAWK/docs/)**: Engineering logs and architecture references detailing layouts and roadmap plans.
-* **`instance/`**: Directory containing local SQLite state databases.
-
----
-
-## Local Development Setup
-
-To run the application locally, you will need to start both the Frontend web container and the Backend ML container.
-
-### Prerequisites
-* Python 3.11 or higher
-* `uv` (recommended for faster package resolutions in the Backend)
-
-### 1. Launch the Backend (FastAPI ML Service)
-Navigate to the `Backend/` folder, configure dependencies, and start the ASGI web service on port `8000`:
-```bash
-cd Backend
-pip install uv
-uv run fastapi dev main.py
 ```
-*The FastAPI application will load `Qwen2.5-Coder-1.5B-Instruct` (downloading weights from Hugging Face if not cached) and expose a `/submit` endpoint.*
-
-### 2. Launch the Frontend (Flask Web Application)
-Navigate to the `Frontend/` folder, configure a virtual environment, install dependencies, and run the developer server on port `5000`:
-```bash
-cd Frontend
-python -m venv venv
-# On Windows PowerShell:
-.\venv\Scripts\Activate.ps1
-# On Linux/macOS:
-source venv/bin/activate
-
-pip install -r requirements.txt
-python app.py
+bughawk/
+├── Frontend/
+│   ├── app.py                  # Routes, DB models, auth
+│   ├── scanner/                # Analysis engine
+│   │   ├── manager.py          # Orchestrates all scanners
+│   │   ├── bandit_scanner.py
+│   │   ├── ruff_scanner.py
+│   │   ├── radon_scanner.py
+│   │   ├── pip_audit_scanner.py
+│   │   ├── scoring.py          # Health score and grading
+│   │   └── report.py           # Report model and serializer
+│   ├── ai/
+│   │   ├── explainer.py        # Gemini batch explanation engine
+│   │   └── templates.py        # Deterministic fallback explanations
+│   ├── templates/              # Jinja2 HTML templates
+│   └── static/                 # Assets
+├── Backend/
+│   ├── main.py                 # FastAPI app
+│   └── models/                 # ML model loading and inference
+├── docs/
+└── README.md
 ```
-*Access the application by navigating your web browser to `http://localhost:5000`.*
 
 ---
 
-## Environment Variables
-The applications look for variables stored in `.env` files inside their respective directories:
-* **Frontend (`Frontend/.env`):**
-  * `GEMINI_API_KEY`: API key used to process requests inside the AI Copilot.
-  * `SECRET_KEY`: Flask session security signature.
-  * `MAIL_USERNAME` / `MAIL_PASSWORD`: Google SMTP sender setup for OTP codes.
-  * `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`: OAuth integration application keys.
-* **Backend (`Backend/.env`):**
-  * `token_hf`: Hugging Face read access token.
+## Team
+
+Om Karkele | Aditya Katkar | Kartik Mandhane  | Yash Kashid | 
 
 ---
 
-## Roadmap & Architecture
-For deep architectural details, decisions log, and future steps for backend integration, please check the engineering documentation:
-* [Architecture Blueprint](file:///c:/IMP/VIT/SY/SEM_1/EDI/EDI%20-%20BUGHAWK/docs/ARCHITECTURE.md)
-* [Modernization Roadmap](file:///c:/IMP/VIT/SY/SEM_1/EDI/EDI%20-%20BUGHAWK/docs/ROADMAP.md)
-* [Architecture Decisions Log](file:///c:/IMP/VIT/SY/SEM_1/EDI/EDI%20-%20BUGHAWK/docs/DECISIONS.md)
+## Contact
+
+**Email:** omtechservices.dev@gmail.com
 
 ---
-*Developed by Group SY-F-18.*
+
+## License
+
+[MIT License](LICENSE) — © 2025 BugHawk by Team BugHawk. All rights reserved.

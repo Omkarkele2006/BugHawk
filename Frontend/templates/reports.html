@@ -405,16 +405,86 @@
                                 </div>
                             </div>
 
-                            <!-- Right panel: AI executive summary text -->
-                            <div class="md:col-span-2 flex flex-col h-full justify-between">
+                            <!-- Right panel: Executive Summary + Top Findings -->
+                            <div class="md:col-span-2 flex flex-col gap-4">
+
+                                <!-- Executive Summary -->
                                 <div>
                                     <h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 flex items-center">
-                                        <i class="fa-solid fa-robot mr-1.5 text-[#64FFDA]"></i> AI Executive Summary
+                                        <i class="fa-solid fa-robot mr-1.5 text-[#64FFDA]"></i> Executive Summary
                                     </h4>
-                                    <div class="bg-[#0d1117] p-4 rounded-lg border border-[#304C6B] text-sm text-gray-300 font-mono leading-relaxed h-36 overflow-y-auto whitespace-pre-line">
-                                        {{ analysis.full_report_text or fallback_summary }}
+                                    {% set raw_summary = analysis.full_report_text or '' %}
+                                    {# Strip the "[Displaying top N of M findings]..." prefix if present #}
+                                    {% if raw_summary.startswith('[') and 'findings]' in raw_summary %}
+                                        {% set summary_text = raw_summary.split(']', 1)[1].strip() if ']' in raw_summary else '' %}
+                                    {% else %}
+                                        {% set summary_text = raw_summary %}
+                                    {% endif %}
+                                    {# Truncate to 600 chars and strip obvious dump artifacts #}
+                                    {% if summary_text | length > 600 %}
+                                        {% set summary_text = summary_text[:600] ~ '…' %}
+                                    {% endif %}
+                                    {% if not summary_text %}
+                                        {% set summary_text = 'Scanned ' ~ analysis.project_name ~ '. ' ~ total_issues ~ ' total findings identified: ' ~ stats.security ~ ' security, ' ~ stats.bugs ~ ' bugs, ' ~ stats.codeSmells ~ ' code smells, ' ~ stats.performance ~ ' complexity. Overall grade: ' ~ analysis.health_score_grade ~ ' (' ~ analysis.health_score_status ~ ').' %}
+                                    {% endif %}
+                                    <div class="bg-[#0d1117] p-4 rounded-lg border border-[#304C6B] text-sm text-gray-300 leading-relaxed">
+                                        {{ summary_text }}
                                     </div>
                                 </div>
+
+                                <!-- Top Priority Findings -->
+                                {% set raw_priority = analysis.priority_issues or '[]' %}
+                                {% if raw_priority and raw_priority != '[]' %}
+                                <div>
+                                    <h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 flex items-center">
+                                        <i class="fa-solid fa-triangle-exclamation mr-1.5 text-orange-400"></i> Top Priority Findings
+                                    </h4>
+                                    <div class="rounded-lg border border-[#304C6B] overflow-hidden">
+                                        <table class="w-full text-xs">
+                                            <thead>
+                                                <tr class="table-header">
+                                                    <th class="px-3 py-2 text-left font-semibold">Finding</th>
+                                                    <th class="px-3 py-2 text-left font-semibold hidden sm:table-cell">File</th>
+                                                    <th class="px-3 py-2 text-center font-semibold hidden sm:table-cell">Line</th>
+                                                    <th class="px-3 py-2 text-center font-semibold">Severity</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% set issues = analysis.priority_issues | from_json_safe %}
+                                                {% for issue in issues[:5] %}
+                                                <tr class="table-row bg-[#0c1322]">
+                                                    <td class="px-3 py-2 text-gray-200 font-medium max-w-[180px] truncate" title="{{ issue.get('title', 'N/A') }}">
+                                                        {{ issue.get('title', 'N/A') }}
+                                                    </td>
+                                                    <td class="px-3 py-2 text-gray-400 font-mono hidden sm:table-cell max-w-[140px] truncate" title="{{ issue.get('file', '') }}">
+                                                        {{ issue.get('file', '—') | basename_safe }}
+                                                    </td>
+                                                    <td class="px-3 py-2 text-gray-400 font-mono text-center hidden sm:table-cell">
+                                                        {{ issue.get('line', '—') }}
+                                                    </td>
+                                                    <td class="px-3 py-2 text-center">
+                                                        {% set sev = issue.get('severity', 'INFO') | upper %}
+                                                        <span class="inline-block px-2 py-0.5 rounded-full text-xs font-bold
+                                                            {% if sev == 'CRITICAL' %} bg-red-900/40 text-red-400 border border-red-700
+                                                            {% elif sev in ['MAJOR', 'HIGH'] %} bg-orange-900/40 text-orange-400 border border-orange-700
+                                                            {% elif sev in ['MINOR', 'MEDIUM'] %} bg-yellow-900/40 text-yellow-400 border border-yellow-700
+                                                            {% else %} bg-sky-900/40 text-sky-400 border border-sky-700 {% endif %}">
+                                                            {{ sev }}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                        {% if issues | length > 5 %}
+                                        <div class="px-3 py-2 bg-[#0c1322] border-t border-[#304C6B] text-xs text-gray-500 italic">
+                                            Showing top 5 of {{ issues | length }} priority findings. View full report for details.
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endif %}
+
                             </div>
                         </div>
                     </div>

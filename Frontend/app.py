@@ -116,7 +116,26 @@ def time_ago_filter(dt):
     if diff.seconds > 60: return f"{diff.seconds // 60} minute(s) ago"
     return "Just now"
 
-# --- Database Models ---
+@app.template_filter('from_json_safe')
+def from_json_safe_filter(value):
+    """Safely parses a JSON string into a list. Returns [] on any error."""
+    if not value:
+        return []
+    try:
+        result = json.loads(value)
+        return result if isinstance(result, list) else []
+    except (TypeError, ValueError):
+        return []
+
+@app.template_filter('basename_safe')
+def basename_safe_filter(value):
+    """Returns just the filename from a path and truncates to 30 chars."""
+    if not value:
+        return '—'
+    name = str(value).replace('\\', '/').split('/')[-1]
+    return name[:30] + '…' if len(name) > 30 else name
+
+
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     github_id = db.Column(db.String(100), unique=True, nullable=True)
