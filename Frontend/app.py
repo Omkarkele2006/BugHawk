@@ -50,7 +50,10 @@ app = Flask(__name__, template_folder='templates', static_folder='static')
 GEMINI_MODEL_NAME = os.environ.get('GEMINI_MODEL', 'gemini-2.5-flash')
 
 # --- Configurations ---
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'bug-hawk-secret-key-change-this')
+_secret_key = os.environ.get('SECRET_KEY')
+if not _secret_key:
+    raise RuntimeError("SECRET_KEY environment variable is not set. Set it in your .env file before running.")
+app.config['SECRET_KEY'] = _secret_key
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///bughawk.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -201,7 +204,7 @@ def load_user(user_id):
 
 # --- OTP Logic ---
 def send_otp_email(user):
-    otp = str(random.randint(100000, 999999))
+    otp = str(secrets.randbelow(900000) + 100000)  # Cryptographically secure 6-digit OTP
     expiry = datetime.now(timezone.utc) + timedelta(minutes=10)
     user.otp = otp
     user.otp_expiry = expiry
@@ -315,14 +318,10 @@ def analyze_route():
             report_type='repository'
         )
         
-        # Debug logging before database save
-        print(f"\n[DEBUG Database Save] --- Analysis Object Before Save ---")
-        print(f"[DEBUG Database Save] Project: {new_analysis.project_name}")
-        print(f"[DEBUG Database Save] Grade: {new_analysis.health_score_grade}")
-        print(f"[DEBUG Database Save] Status: {new_analysis.health_score_status}")
-        print(f"[DEBUG Database Save] Issue Counts JSON: {new_analysis.issue_counts}")
-        print(f"[DEBUG Database Save] Report Type: {new_analysis.report_type}")
-        print(f"[DEBUG Database Save] ------------------------------------\n")
+        app.logger.info(
+            f"[DB Save] project='{new_analysis.project_name}' grade={new_analysis.health_score_grade} "
+            f"type={new_analysis.report_type}"
+        )
         
         db.session.add(new_analysis)
         db.session.commit()

@@ -366,18 +366,17 @@ class ScanManager:
             else:
                 issue_counts_by_severity["INFO"] += 1
 
-        # Debug console output
-        print(f"\n[DEBUG ScanManager] --- Scanner Execution & Merging Details ---")
-        print(f"[DEBUG ScanManager] Project Name: {project_name}")
-        print(f"[DEBUG ScanManager] Scanners that failed: {tools_failed}")
-        print(f"[DEBUG ScanManager] Scanners that ran: {tools_executed}")
-        print(f"[DEBUG ScanManager] Total findings before deduplication: {total_raw_count}")
-        print(f"[DEBUG ScanManager] Merged findings count (deduplicated): {len(findings_with_explanations)}")
-        print(f"[DEBUG ScanManager] Computed Category Counts: {issue_counts_by_category}")
-        print(f"[DEBUG ScanManager] Computed Severity Counts: {issue_counts_by_severity}")
-        print(f"[DEBUG ScanManager] Final Grade: {grade_val}")
-        print(f"[DEBUG ScanManager] Final Status: {status_val}")
-        print(f"[DEBUG ScanManager] ---------------------------------------------\n")
+        # Structured scan summary log
+        try:
+            from flask import current_app
+            current_app.logger.info(
+                f"[ScanManager] {project_name} | Grade={grade_val} Status={status_val} | "
+                f"Ran={tools_executed} Failed={tools_failed} | "
+                f"Raw={total_raw_count} Deduped={len(findings_with_explanations)} | "
+                f"Categories={issue_counts_by_category} Severities={issue_counts_by_severity}"
+            )
+        except RuntimeError:
+            pass  # Outside Flask context (e.g. tests)
 
         return Report(
             project_name=project_name,
